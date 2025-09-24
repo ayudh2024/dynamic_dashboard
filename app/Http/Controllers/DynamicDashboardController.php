@@ -132,8 +132,8 @@ class DynamicDashboardController extends Controller
             );
 
             $numericTypes = ['smallint', 'integer', 'bigint', 'decimal', 'numeric', 'real', 'double precision'];
-            $stringTypes = ['character varying', 'varchar', 'character', 'char', 'text', 'json', 'jsonb', 'uuid'];
-            $dateTypes = ['date', 'timestamp without time zone', 'timestamp with time zone', 'time without time zone', 'time with time zone'];
+            $stringTypes = ['character varying', 'varchar', 'character', 'char', 'text', 'json', 'jsonb', 'uuid', 'date'];
+            $dateTypes = ['timestamp without time zone', 'timestamp with time zone', 'time without time zone', 'time with time zone'];
 
             $numeric = [];
             $string = [];

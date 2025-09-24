@@ -533,6 +533,25 @@
                         var dashboardMinWidth = 240; // px
                         var dashboardMaxWidth = container.clientWidth - 24; // leave some gap
 
+                        // Restore saved size if available
+                        try {
+                            var chartId = card.getAttribute('data-chart-id');
+                            var savedRaw = localStorage.getItem('chartSize:' + chartId);
+                            if (savedRaw) {
+                                var saved = JSON.parse(savedRaw);
+                                if (saved && typeof saved.width === 'number' && typeof saved.height === 'number') {
+                                    card.style.height = Math.max(dashboardMinHeight, saved.height) + 'px';
+                                    if (cardWrapper) {
+                                        var widthToApply = Math.max(dashboardMinWidth, Math.min(dashboardMaxWidth, saved.width));
+                                        cardWrapper.style.width = widthToApply + 'px';
+                                        cardWrapper.style.flex = '0 0 ' + widthToApply + 'px';
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            // ignore storage errors
+                        }
+
                         function onMouseMove(e) {
                             var deltaX = e.clientX - startX;
                             var deltaY = e.clientY - startY;
@@ -557,6 +576,18 @@
                             document.body.style.userSelect = '';
                             if (window.__chartsSortable && typeof window.__chartsSortable.option === 'function') {
                                 window.__chartsSortable.option('disabled', false);
+                            }
+
+                            // Persist the final size
+                            try {
+                                var finalHeight = parseInt(window.getComputedStyle(card).height, 10);
+                                var finalWidth = cardWrapper ? parseInt(window.getComputedStyle(cardWrapper).width, 10) : null;
+                                var id = card.getAttribute('data-chart-id');
+                                if (id && finalWidth) {
+                                    localStorage.setItem('chartSize:' + id, JSON.stringify({ width: finalWidth, height: finalHeight }));
+                                }
+                            } catch (e) {
+                                // ignore storage errors
                             }
                         }
 
