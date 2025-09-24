@@ -96,11 +96,11 @@
                                     </div>
                                     <div class="shrink-0">
                                         <label class="block text-xs font-medium text-gray-700">From</label>
-                                        <input type="date" name="from" class="mt-1 block w-30 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
+                                        <input type="date" name="from" class="mt-1 block w-25 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm px-2 py-1" />
                                     </div>
                                     <div class="shrink-0">
                                         <label class="block text-xs font-medium text-gray-700">To</label>
-                                        <input type="date" name="to" class="mt-1 block w-30 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" />
+                                        <input type="date" name="to" class="mt-1 block w-25 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm px-2 py-1" />
                                     </div>
                                     <div class="shrink-0 flex gap-2">
                                             <button type="submit" class="inline-flex items-center px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700">Filter</button>
