@@ -103,6 +103,8 @@ class DynamicDashboardController extends Controller
                 'yLabel' => $detail->y_axis,
                 'chartId' => $detail->chart_id,
                 'moduleName' => $detail->module_name,
+                'widthPx' => $detail->width_px,
+                'heightPx' => $detail->height_px,
             ];
         }
 
@@ -308,9 +310,31 @@ class DynamicDashboardController extends Controller
                 'yLabel' => $detail->y_axis,
                 'chartId' => $detail->chart_id,
                 'moduleName' => $detail->module_name,
+                'widthPx' => $detail->width_px,
+                'heightPx' => $detail->height_px,
             ];
         }
 
         return response()->json(['charts' => $chartConfigs]);
+    }
+
+    /**
+     * Persist chart card size (AJAX).
+     */
+    public function saveSize(Request $request, Dashboard $dashboard, DashboardChartDetail $detail)
+    {
+        if ((int) $detail->dashboard_id !== (int) $dashboard->id) {
+            return response()->json(['message' => 'Chart does not belong to this dashboard'], 422);
+        }
+
+        $validated = $request->validate([
+            'width_px' => ['nullable', 'integer', 'min:100', 'max:4096'],
+            'height_px' => ['nullable', 'integer', 'min:100', 'max:4096'],
+        ]);
+
+        $detail->fill($validated);
+        $detail->save();
+
+        return response()->json(['message' => 'saved']);
     }
 }

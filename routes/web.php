@@ -30,6 +30,12 @@ Route::put('/dynamic-dashboard/{dashboard}/charts/{detail}', [DynamicDashboardCo
     ->whereNumber('detail')
     ->name('dynamic-dashboard.charts.update');
 
+// AJAX: save size for a specific chart card
+Route::post('/dynamic-dashboard/{dashboard}/charts/{detail}/size', [DynamicDashboardController::class, 'saveSize'])
+    ->whereNumber('dashboard')
+    ->whereNumber('detail')
+    ->name('dynamic-dashboard.charts.size');
+
 // Show dashboard (must be after static routes)
 Route::get('/dynamic-dashboard/{dashboard}', [DynamicDashboardController::class, 'show'])
     ->whereNumber('dashboard')

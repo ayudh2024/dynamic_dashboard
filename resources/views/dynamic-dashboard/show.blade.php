@@ -53,7 +53,7 @@
                 <div id="charts-container" class="flex flex-wrap gap-6 max-h-[70vh] overflow-y-auto pr-1">
                     @if(!empty($chartConfigs ?? []) && count($chartConfigs))
                         @foreach($chartConfigs as $cfg)
-                            <div class="chart-card border rounded-lg p-4 bg-white shadow w-[calc(50%-0.75rem)]">
+                            <div class="chart-card border rounded-lg p-4 bg-white shadow w-[calc(50%-0.75rem)]" data-detail-id="{{ $cfg['id'] }}" data-width="{{ $cfg['widthPx'] ?? '' }}" data-height="{{ $cfg['heightPx'] ?? '' }}">
                                 <div class="flex items-center justify-between mb-2">
                                     <div class="flex items-center gap-2">
                                         <button type="button" class="drag-handle cursor-move text-gray-400 hover:text-gray-600" title="Drag to reorder" aria-label="Drag to reorder">
@@ -108,7 +108,7 @@
                                     </div>
                                     </form>
                                 </div>
-                                <div class="relative group chart-resizable" data-chart-id="{{ $cfg['id'] }}" style="height: 16rem;">
+                                <div class="relative group chart-resizable" data-chart-id="{{ $cfg['id'] }}" style="height: {{ isset($cfg['heightPx']) && $cfg['heightPx'] ? $cfg['heightPx'].'px' : '16rem' }};">
                                     <canvas id="chart-{{ $cfg['id'] }}" style="width: 100%; height: 100%;"></canvas>
                                     <button type="button" class="absolute bottom-1 right-1 w-4 h-4 rounded bg-gray-200 text-gray-500 hover:bg-gray-300 flex items-center justify-center cursor-se-resize shadow-sm border border-gray-300 resize-handle" title="Resize">
                                         <svg viewBox="0 0 20 20" class="w-3 h-3" fill="currentColor" aria-hidden="true">
@@ -533,23 +533,21 @@
                         var dashboardMinWidth = 240; // px
                         var dashboardMaxWidth = container.clientWidth - 24; // leave some gap
 
-                        // Restore saved size if available
-                        try {
-                            var chartId = card.getAttribute('data-chart-id');
-                            var savedRaw = localStorage.getItem('chartSize:' + chartId);
-                            if (savedRaw) {
-                                var saved = JSON.parse(savedRaw);
-                                if (saved && typeof saved.width === 'number' && typeof saved.height === 'number') {
-                                    card.style.height = Math.max(dashboardMinHeight, saved.height) + 'px';
-                                    if (cardWrapper) {
-                                        var widthToApply = Math.max(dashboardMinWidth, Math.min(dashboardMaxWidth, saved.width));
-                                        cardWrapper.style.width = widthToApply + 'px';
-                                        cardWrapper.style.flex = '0 0 ' + widthToApply + 'px';
-                                    }
-                                }
+                        // Apply server-provided size if available
+                        var wrapper = card.closest('.chart-card');
+                        if (wrapper) {
+                            var wAttr = wrapper.getAttribute('data-width');
+                            var hAttr = wrapper.getAttribute('data-height');
+                            var widthFromServer = wAttr ? parseInt(wAttr, 10) : null;
+                            var heightFromServer = hAttr ? parseInt(hAttr, 10) : null;
+                            if (widthFromServer && !isNaN(widthFromServer)) {
+                                var widthToApply = Math.max(dashboardMinWidth, Math.min(dashboardMaxWidth, widthFromServer));
+                                wrapper.style.width = widthToApply + 'px';
+                                wrapper.style.flex = '0 0 ' + widthToApply + 'px';
                             }
-                        } catch (e) {
-                            // ignore storage errors
+                            if (heightFromServer && !isNaN(heightFromServer)) {
+                                card.style.height = Math.max(dashboardMinHeight, heightFromServer) + 'px';
+                            }
                         }
 
                         function onMouseMove(e) {
@@ -570,6 +568,24 @@
                             }
                         }
 
+                        function persistSize(widthPx, heightPx) {
+                            try {
+                                var id = card.getAttribute('data-chart-id');
+                                if (!id) return;
+                                var url = '{{ route('dynamic-dashboard.charts.size', [$dashboard, ':id']) }}'.replace(':id', id);
+                                var formData = new FormData();
+                                formData.append('width_px', widthPx);
+                                formData.append('height_px', heightPx);
+                                fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }, body: formData }).catch(function(){});
+                            } catch (e) {}
+                        }
+
+                        var saveOnScroll = debounce(function () {
+                            var finalHeight = parseInt(window.getComputedStyle(card).height, 10);
+                            var finalWidth = cardWrapper ? parseInt(window.getComputedStyle(cardWrapper).width, 10) : null;
+                            if (finalWidth) persistSize(finalWidth, finalHeight);
+                        }, 500);
+
                         function onMouseUp() {
                             document.removeEventListener('mousemove', onMouseMove);
                             document.removeEventListener('mouseup', onMouseUp);
@@ -577,18 +593,9 @@
                             if (window.__chartsSortable && typeof window.__chartsSortable.option === 'function') {
                                 window.__chartsSortable.option('disabled', false);
                             }
-
-                            // Persist the final size
-                            try {
-                                var finalHeight = parseInt(window.getComputedStyle(card).height, 10);
-                                var finalWidth = cardWrapper ? parseInt(window.getComputedStyle(cardWrapper).width, 10) : null;
-                                var id = card.getAttribute('data-chart-id');
-                                if (id && finalWidth) {
-                                    localStorage.setItem('chartSize:' + id, JSON.stringify({ width: finalWidth, height: finalHeight }));
-                                }
-                            } catch (e) {
-                                // ignore storage errors
-                            }
+                            var finalHeight = parseInt(window.getComputedStyle(card).height, 10);
+                            var finalWidth = cardWrapper ? parseInt(window.getComputedStyle(cardWrapper).width, 10) : null;
+                            if (finalWidth) persistSize(finalWidth, finalHeight);
                         }
 
                         handle.addEventListener('mousedown', function (e) {
@@ -610,7 +617,39 @@
                     });
                 }
 
+                // Debounce helper
+                function debounce(fn, wait) {
+                    var t;
+                    return function () {
+                        clearTimeout(t);
+                        var args = arguments;
+                        var ctx = this;
+                        t = setTimeout(function () { fn.apply(ctx, args); }, wait);
+                    };
+                }
+
                 initResizableCharts();
+
+                // Save size on container scroll (debounced) for all cards
+                var debouncedScrollSave = debounce(function () {
+                    var cards = container.querySelectorAll('.chart-resizable');
+                    cards.forEach(function (card) {
+                        var cardWrapper = card.closest('.chart-card');
+                        var finalHeight = parseInt(window.getComputedStyle(card).height, 10);
+                        var finalWidth = cardWrapper ? parseInt(window.getComputedStyle(cardWrapper).width, 10) : null;
+                        var id = card.getAttribute('data-chart-id');
+                        if (!id || !finalWidth) return;
+                        try {
+                            var url = '{{ route('dynamic-dashboard.charts.size', [$dashboard, ':id']) }}'.replace(':id', id);
+                            var formData = new FormData();
+                            formData.append('width_px', finalWidth);
+                            formData.append('height_px', finalHeight);
+                            fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }, body: formData }).catch(function(){});
+                        } catch (e) {}
+                    });
+                }, 750);
+
+                container.addEventListener('scroll', debouncedScrollSave, { passive: true });
             })();
         </script>
     </body>

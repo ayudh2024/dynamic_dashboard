@@ -18,6 +18,8 @@ return new class extends Migration
             $table->string('x_axis')->nullable();
             $table->string('y_axis')->nullable();
             $table->string('module_name');
+            $table->unsignedInteger('width_px')->nullable();
+            $table->unsignedInteger('height_px')->nullable();
             $table->timestamps();
         });
     }

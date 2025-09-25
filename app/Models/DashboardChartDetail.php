@@ -21,6 +21,8 @@ class DashboardChartDetail extends Model
         'x_axis',
         'y_axis',
         'module_name',
+        'width_px',
+        'height_px',
     ];
 
     /**
