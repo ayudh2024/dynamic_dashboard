@@ -109,7 +109,7 @@
                                     </form>
                                 </div>
                                 <div class="relative group chart-resizable" data-chart-id="{{ $cfg['id'] }}" style="height: {{ isset($cfg['heightPx']) && $cfg['heightPx'] ? $cfg['heightPx'].'px' : '16rem' }};">
-                                    <canvas id="chart-{{ $cfg['id'] }}" style="width: 100%; height: 100%;"></canvas>
+                                    <div id="chart-{{ $cfg['id'] }}" style="width: 100%; height: 100%;"></div>
                                     <button type="button" class="absolute bottom-1 right-1 w-4 h-4 rounded bg-gray-200 text-gray-500 hover:bg-gray-300 flex items-center justify-center cursor-se-resize shadow-sm border border-gray-300 resize-handle" title="Resize">
                                         <svg viewBox="0 0 20 20" class="w-3 h-3" fill="currentColor" aria-hidden="true">
                                             <path d="M5 15h2v2H5v-2zm4-4h2v2H9v-2zm4-4h2v2h-2V7z"></path>
@@ -243,11 +243,7 @@
         </div>
 
         @if(!empty($chartConfigs ?? []) && count($chartConfigs))
-            @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
-                
-            @else
-                <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-            @endif
+            <script src="https://cdn.jsdelivr.net/npm/ag-charts-enterprise/dist/umd/ag-charts-enterprise.min.js"></script>
         @endif
 
         <script>
@@ -392,34 +388,120 @@
             // Render charts
             (function () {
                 const cfgs = @json($chartConfigs ?? []);
-                if (!Array.isArray(cfgs) || !cfgs.length || typeof Chart === 'undefined') return;
+                if (!Array.isArray(cfgs) || !cfgs.length || typeof agCharts === 'undefined') return;
                 window.__chartsById = window.__chartsById || {};
+                
                 cfgs.forEach(function (cfg) {
                     const el = document.getElementById('chart-' + cfg.id);
                     if (!el) return;
-                    const isCategory = cfg.type !== 'scatter' && cfg.type !== 'bubble';
-                    const dataset = {
-                        label: cfg.title,
-                        data: cfg.data,
-                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
-                        borderColor: 'rgba(59, 130, 246, 1)',
-                        borderWidth: 1,
-                        fill: cfg.type === 'line'
+                    
+                    // Convert Chart.js data format to AG Charts format
+                    const data = cfg.labels.map((label, index) => ({
+                        category: label,
+                        value: cfg.data[index] || 0
+                    }));
+                    
+                    // Map chart types from Chart.js to AG Charts
+                    let chartType = 'column';
+                    switch (cfg.type) {
+                        case 'bar':
+                            chartType = 'bar';
+                            break;
+                        case 'line':
+                            chartType = 'line';
+                            break;
+                        case 'pie':
+                            chartType = 'pie';
+                            break;
+                        case 'doughnut':
+                            chartType = 'donut';
+                            break;
+                        case 'scatter':
+                            chartType = 'scatter';
+                            break;
+                        case 'polarArea':
+                        case 'radar':
+                            chartType = 'column'; // Fallback to column for unsupported types
+                            break;
+                        default:
+                            chartType = 'column';
+                    }
+                    
+                    // Create AG Charts configuration
+                    const options = {
+                        container: el,
+                        title: {
+                            text: cfg.title
+                        },
+                        data: data,
+                        series: []
                     };
-                    const chartInstance = new Chart(el, {
-                        type: cfg.type,
-                        data: { labels: cfg.labels, datasets: [dataset] },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { display: true } },
-                            scales: isCategory ? {
-                                x: { title: { display: true, text: cfg.yLabel } },
-                                y: { title: { display: true, text: cfg.xLabel }, beginAtZero: true }
-                            } : {}
-                        }
-                    });
+                    
+                    // Configure series based on chart type
+                    if (chartType === 'pie' || chartType === 'donut') {
+                        options.series = [{
+                            type: chartType,
+                            angleKey: 'value',
+                            labelKey: 'category',
+                            fills: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316']
+                        }];
+                    } else if (chartType === 'scatter') {
+                        options.series = [{
+                            type: 'scatter',
+                            xKey: 'category',
+                            yKey: 'value',
+                            fill: '#3b82f6',
+                            stroke: '#1d4ed8'
+                        }];
+                        options.axes = [
+                            {
+                                type: 'category',
+                                position: 'bottom',
+                                title: { text: cfg.yLabel || 'Category' }
+                            },
+                            {
+                                type: 'number',
+                                position: 'left',
+                                title: { text: cfg.xLabel || 'Value' }
+                            }
+                        ];
+                    } else {
+                        options.series = [{
+                            type: chartType,
+                            xKey: 'category',
+                            yKey: 'value',
+                            fill: '#3b82f6',
+                            stroke: '#1d4ed8'
+                        }];
+                        options.axes = [
+                            {
+                                type: 'category',
+                                position: 'bottom',
+                                title: { text: cfg.yLabel || 'Category' }
+                            },
+                            {
+                                type: 'number',
+                                position: 'left',
+                                title: { text: cfg.xLabel || 'Value' }
+                            }
+                        ];
+                    }
+                    
+                    const chartInstance = agCharts.AgCharts.create(options);
                     window.__chartsById[cfg.id] = chartInstance;
+                    
+                    // Store chart configuration for resize operations
+                    window.__chartConfigsById = window.__chartConfigsById || {};
+                    window.__chartConfigsById[cfg.id] = {
+                        data: data,
+                        options: options,
+                        type: chartType,
+                        title: cfg.title,
+                        xLabel: cfg.xLabel,
+                        yLabel: cfg.yLabel
+                    };
+                    
+                    console.log('Created AG Chart with ID:', cfg.id, 'Type:', chartType);
                 });
             })();
 
@@ -470,13 +552,124 @@
                         window.__chartsById = window.__chartsById || {};
                         var existing = window.__chartsById[cfg.id];
                         if (existing) {
-                            existing.config.type = cfg.type;
-                            existing.data.labels = cfg.labels;
-                            if (existing.data.datasets && existing.data.datasets[0]) {
-                                existing.data.datasets[0].label = cfg.title;
-                                existing.data.datasets[0].data = cfg.data;
+                            // Convert Chart.js data format to AG Charts format
+                            const newData = cfg.labels.map((label, index) => ({
+                                category: label,
+                                value: cfg.data[index] || 0
+                            }));
+                            
+                            // Map chart types from Chart.js to AG Charts
+                            let chartType = 'column';
+                            switch (cfg.type) {
+                                case 'bar':
+                                    chartType = 'bar';
+                                    break;
+                                case 'line':
+                                    chartType = 'line';
+                                    break;
+                                case 'pie':
+                                    chartType = 'pie';
+                                    break;
+                                case 'doughnut':
+                                    chartType = 'donut';
+                                    break;
+                                case 'scatter':
+                                    chartType = 'scatter';
+                                    break;
+                                case 'polarArea':
+                                case 'radar':
+                                    chartType = 'column'; // Fallback to column for unsupported types
+                                    break;
+                                default:
+                                    chartType = 'column';
                             }
-                            existing.update();
+                            
+                            // Create complete update configuration
+                            const updateOptions = {
+                                data: newData,
+                                title: {
+                                    text: cfg.title
+                                },
+                                series: []
+                            };
+                            
+                            // Configure series based on chart type
+                            if (chartType === 'pie' || chartType === 'donut') {
+                                updateOptions.series = [{
+                                    type: chartType,
+                                    angleKey: 'value',
+                                    labelKey: 'category',
+                                    fills: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316']
+                                }];
+                            } else if (chartType === 'scatter') {
+                                updateOptions.series = [{
+                                    type: 'scatter',
+                                    xKey: 'category',
+                                    yKey: 'value',
+                                    fill: '#3b82f6',
+                                    stroke: '#1d4ed8'
+                                }];
+                                updateOptions.axes = [
+                                    {
+                                        type: 'category',
+                                        position: 'bottom',
+                                        title: { text: cfg.yLabel || 'Category' }
+                                    },
+                                    {
+                                        type: 'number',
+                                        position: 'left',
+                                        title: { text: cfg.xLabel || 'Value' }
+                                    }
+                                ];
+                            } else {
+                                updateOptions.series = [{
+                                    type: chartType,
+                                    xKey: 'category',
+                                    yKey: 'value',
+                                    fill: '#3b82f6',
+                                    stroke: '#1d4ed8'
+                                }];
+                                updateOptions.axes = [
+                                    {
+                                        type: 'category',
+                                        position: 'bottom',
+                                        title: { text: cfg.yLabel || 'Category' }
+                                    },
+                                    {
+                                        type: 'number',
+                                        position: 'left',
+                                        title: { text: cfg.xLabel || 'Value' }
+                                    }
+                                ];
+                            }
+                            
+                            // Update the chart with complete configuration
+                            console.log('Updating chart ID:', cfg.id, 'with data:', newData.length, 'items');
+                            try {
+                                existing.update(updateOptions);
+                                console.log('Chart updated successfully');
+                            } catch (updateError) {
+                                console.warn('Chart update failed, recreating chart:', updateError);
+                                // If update fails, destroy and recreate the chart
+                                existing.destroy();
+                                
+                                // Recreate the chart with new configuration
+                                const newOptions = {
+                                    container: el,
+                                    title: {
+                                        text: cfg.title
+                                    },
+                                    data: newData,
+                                    series: updateOptions.series
+                                };
+                                
+                                if (updateOptions.axes) {
+                                    newOptions.axes = updateOptions.axes;
+                                }
+                                
+                                const newChartInstance = agCharts.AgCharts.create(newOptions);
+                                window.__chartsById[cfg.id] = newChartInstance;
+                            }
                         }
                     } catch (e) {
                         console.error(e);
@@ -563,8 +756,24 @@
                             }
                             var id = card.getAttribute('data-chart-id');
                             var chart = (window.__chartsById || {})[id];
-                            if (chart && typeof chart.resize === 'function') {
-                                chart.resize();
+                            if (chart) {
+                                // AG Charts needs explicit resize handling with data preservation
+                                setTimeout(() => {
+                                    if (chart && typeof chart.update === 'function') {
+                                        var storedConfig = (window.__chartConfigsById || {})[id];
+                                        if (storedConfig) {
+                                            // Update with stored data to preserve chart content
+                                            chart.update({
+                                                data: storedConfig.data,
+                                                title: { text: storedConfig.title },
+                                                series: storedConfig.options.series,
+                                                axes: storedConfig.options.axes
+                                            });
+                                        } else {
+                                            chart.update();
+                                        }
+                                    }
+                                }, 100);
                             }
                         }
 
@@ -596,6 +805,28 @@
                             var finalHeight = parseInt(window.getComputedStyle(card).height, 10);
                             var finalWidth = cardWrapper ? parseInt(window.getComputedStyle(cardWrapper).width, 10) : null;
                             if (finalWidth) persistSize(finalWidth, finalHeight);
+                            
+                            // Force chart resize after mouse up
+                            var id = card.getAttribute('data-chart-id');
+                            var chart = (window.__chartsById || {})[id];
+                            if (chart) {
+                                setTimeout(() => {
+                                    if (chart && typeof chart.update === 'function') {
+                                        var storedConfig = (window.__chartConfigsById || {})[id];
+                                        if (storedConfig) {
+                                            // Update with stored data to preserve chart content
+                                            chart.update({
+                                                data: storedConfig.data,
+                                                title: { text: storedConfig.title },
+                                                series: storedConfig.options.series,
+                                                axes: storedConfig.options.axes
+                                            });
+                                        } else {
+                                            chart.update();
+                                        }
+                                    }
+                                }, 200);
+                            }
                         }
 
                         handle.addEventListener('mousedown', function (e) {
@@ -650,6 +881,27 @@
                 }, 750);
 
                 container.addEventListener('scroll', debouncedScrollSave, { passive: true });
+                
+                // Handle window resize for all charts
+                window.addEventListener('resize', debounce(function() {
+                    Object.keys(window.__chartsById || {}).forEach(function(chartId) {
+                        var chart = window.__chartsById[chartId];
+                        if (chart && typeof chart.update === 'function') {
+                            var storedConfig = (window.__chartConfigsById || {})[chartId];
+                            if (storedConfig) {
+                                // Update with stored data to preserve chart content
+                                chart.update({
+                                    data: storedConfig.data,
+                                    title: { text: storedConfig.title },
+                                    series: storedConfig.options.series,
+                                    axes: storedConfig.options.axes
+                                });
+                            } else {
+                                chart.update();
+                            }
+                        }
+                    });
+                }, 300));
             })();
         </script>
     </body>
