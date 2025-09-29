@@ -64,7 +64,7 @@
                                         <h3 class="font-medium text-gray-900">{{ ucfirst($cfg['moduleName']) }} - {{ $cfg['title'] }}</h3>
                                     </div>
                                     <div class="flex items-center gap-3"><div class="flex items-center gap-1">
-                                            <button type="button" onclick="openEditChartModal({{ $cfg['id'] }}, {{ $cfg['chartId'] }}, '{{ $cfg['moduleName'] }}', '{{ $cfg['xLabel'] }}', '{{ $cfg['yLabel'] }}')" 
+                                            <button type="button" onclick="openEditChartModal({{ $cfg['id'] }}, {{ $cfg['chartId'] }}, '{{ $cfg['moduleName'] }}', '{{ $cfg['xLabel'] }}', '{{ $cfg['yLabel'] }}', '{{ $cfg['dateRange'] ?? '' }}')" 
                            
                            
                            
@@ -88,6 +88,18 @@
                                 </div>
                                 <div class="mb-3 border rounded-md bg-white shadow-sm p-3">
                                     <form class="per-chart-filter flex flex-nowrap items-end gap-3 overflow-x-auto" data-detail-id="{{ $cfg['id'] }}" data-module="{{ $cfg['moduleName'] }}">
+                                    <div class="shrink-0">
+                                        <label class="block text-xs font-medium text-gray-700">Date Range</label>
+                                        <select name="date_range" class="date-range-select mt-1 block w-32 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
+                                            <option value="">Custom Range</option>
+                                            <option value="last_7_days">Last 7 Days</option>
+                                            <option value="this_week">This Week</option>
+                                            <option value="last_15_days">Last 15 Days</option>
+                                            <option value="this_month">This Month</option>
+                                            <option value="last_month">Last Month</option>
+                                            <option value="this_year">This Year</option>
+                                        </select>
+                                    </div>
                                     <div class="shrink-0">
                                         <label class="block text-xs font-medium text-gray-700">Filter By</label>
                                         <select name="date_field" class="date-field-select mt-1 block w-30 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
@@ -183,6 +195,19 @@
                         </div>
                     </div>
 
+                    <div>
+                        <label for="date_range" class="block text-sm font-medium text-gray-700">Default Date Range</label>
+                        <select id="date_range" name="date_range" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">All Time</option>
+                            <option value="last_7_days">Last 7 Days</option>
+                            <option value="this_week">This Week</option>
+                            <option value="last_15_days">Last 15 Days</option>
+                            <option value="this_month">This Month</option>
+                            <option value="last_month">Last Month</option>
+                            <option value="this_year">This Year</option>
+                        </select>
+                    </div>
+
                     <div class="flex items-center justify-end gap-3 pt-2">
                         <button type="button" onclick="closeAddChartModal()" class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</button>
                         <button type="submit" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Add</button>
@@ -234,6 +259,19 @@
                         </div>
                     </div>
 
+                    <div>
+                        <label for="edit_date_range" class="block text-sm font-medium text-gray-700">Default Date Range</label>
+                        <select id="edit_date_range" name="date_range" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                            <option value="">All Time</option>
+                            <option value="last_7_days">Last 7 Days</option>
+                            <option value="this_week">This Week</option>
+                            <option value="last_15_days">Last 15 Days</option>
+                            <option value="this_month">This Month</option>
+                            <option value="last_month">Last Month</option>
+                            <option value="this_year">This Year</option>
+                        </select>
+                    </div>
+
                     <div class="flex items-center justify-end gap-3 pt-2">
                         <button type="button" onclick="closeEditChartModal()" class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</button>
                         <button type="submit" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Update</button>
@@ -270,13 +308,14 @@
             const editYAxisSelect = document.getElementById('edit_y_axis');
             const editChartIdSelect = document.getElementById('edit_chart_id');
 
-            function openEditChartModal(chartDetailId, chartId, moduleName, xLabel, yLabel) {
+            function openEditChartModal(chartDetailId, chartId, moduleName, xLabel, yLabel, dateRange) {
                 // Set the form action
                 editChartForm.action = '{{ route('dynamic-dashboard.charts.update', [$dashboard, ':chartDetailId']) }}'.replace(':chartDetailId', chartDetailId);
                 
                 // Set current values
                 editChartIdSelect.value = chartId || '';
                 editModuleSelect.value = moduleName || 'products';
+                document.getElementById('edit_date_range').value = dateRange || '';
                 
                 // Store the axis values to set later
                 window.pendingAxisValues = { xLabel: xLabel || '', yLabel: yLabel || '' };
@@ -535,11 +574,13 @@
                 async function fetchAndRender(form) {
                     const detailId = form.getAttribute('data-detail-id');
                     const dateField = form.querySelector('select[name="date_field"]').value;
+                    const dateRange = form.querySelector('select[name="date_range"]').value;
                     const from = form.querySelector('input[name="from"]').value;
                     const to = form.querySelector('input[name="to"]').value;
                     const params = new URLSearchParams();
                     if (detailId) params.set('detail_id', detailId);
                     if (dateField) params.set('date_field', dateField);
+                    if (dateRange) params.set('date_range', dateRange);
                     if (from) params.set('from', from);
                     if (to) params.set('to', to);
                     try {
@@ -676,17 +717,103 @@
                     }
                 }
 
+                // Helper function to calculate date ranges on frontend
+                function calculateDateRange(dateRange) {
+                    const now = new Date();
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    
+                    switch (dateRange) {
+                        case 'last_7_days':
+                            const sevenDaysAgo = new Date(today);
+                            sevenDaysAgo.setDate(today.getDate() - 7);
+                            return {
+                                from: sevenDaysAgo.toISOString().split('T')[0],
+                                to: today.toISOString().split('T')[0]
+                            };
+                        
+                        case 'this_week':
+                            const startOfWeek = new Date(today);
+                            startOfWeek.setDate(today.getDate() - today.getDay());
+                            const endOfWeek = new Date(startOfWeek);
+                            endOfWeek.setDate(startOfWeek.getDate() + 6);
+                            return {
+                                from: startOfWeek.toISOString().split('T')[0],
+                                to: endOfWeek.toISOString().split('T')[0]
+                            };
+                        
+                        case 'last_15_days':
+                            const fifteenDaysAgo = new Date(today);
+                            fifteenDaysAgo.setDate(today.getDate() - 15);
+                            return {
+                                from: fifteenDaysAgo.toISOString().split('T')[0],
+                                to: today.toISOString().split('T')[0]
+                            };
+                        
+                        case 'this_month':
+                            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                            return {
+                                from: startOfMonth.toISOString().split('T')[0],
+                                to: endOfMonth.toISOString().split('T')[0]
+                            };
+                        
+                        case 'last_month':
+                            const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                            const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                            return {
+                                from: startOfLastMonth.toISOString().split('T')[0],
+                                to: endOfLastMonth.toISOString().split('T')[0]
+                            };
+                        
+                        case 'this_year':
+                            const startOfYear = new Date(now.getFullYear(), 0, 1);
+                            const endOfYear = new Date(now.getFullYear(), 11, 31);
+                            return {
+                                from: startOfYear.toISOString().split('T')[0],
+                                to: endOfYear.toISOString().split('T')[0]
+                            };
+                        
+                        default:
+                            return { from: '', to: '' };
+                    }
+                }
+
                 forms.forEach(function (form) {
                     populateDateFields(form);
+                    
+                    // Handle date range selection
+                    const dateRangeSelect = form.querySelector('select[name="date_range"]');
+                    const fromInput = form.querySelector('input[name="from"]');
+                    const toInput = form.querySelector('input[name="to"]');
+                    
+                    if (dateRangeSelect) {
+                        dateRangeSelect.addEventListener('change', function () {
+                            const selectedRange = this.value;
+                            if (selectedRange) {
+                                const dates = calculateDateRange(selectedRange);
+                                fromInput.value = dates.from;
+                                toInput.value = dates.to;
+                                // Automatically trigger the filter
+                                fetchAndRender(form);
+                            } else {
+                                // Clear dates when "Custom Range" is selected
+                                fromInput.value = '';
+                                toInput.value = '';
+                            }
+                        });
+                    }
+                    
                     form.addEventListener('submit', function (e) {
                         e.preventDefault();
                         fetchAndRender(form);
                     });
+                    
                     const clearBtn = form.querySelector('.per-chart-clear');
                     if (clearBtn) {
                         clearBtn.addEventListener('click', function () {
                             form.querySelector('input[name="from"]').value = '';
                             form.querySelector('input[name="to"]').value = '';
+                            form.querySelector('select[name="date_range"]').value = '';
                             fetchAndRender(form);
                         });
                     }

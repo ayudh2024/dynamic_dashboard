@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('module_name');
             $table->unsignedInteger('width_px')->nullable();
             $table->unsignedInteger('height_px')->nullable();
+            $table->string('date_range')->nullable()->after('module_name');
             $table->timestamps();
         });
     }

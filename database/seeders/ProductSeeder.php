@@ -17,11 +17,6 @@ class ProductSeeder extends Seeder
         $productNames = [
             'iPhone 15 Pro', 'Samsung Galaxy S24', 'MacBook Pro M3', 'Dell XPS 13', 'iPad Air',
             'Sony WH-1000XM5', 'Nintendo Switch', 'PlayStation 5', 'Xbox Series X', 'Apple Watch',
-            'AirPods Pro', 'Surface Laptop', 'Canon EOS R5', 'Nikon Z6', 'GoPro Hero 12',
-            'Tesla Model 3', 'Toyota Camry', 'Honda Accord', 'BMW X5', 'Mercedes C-Class',
-            'Nike Air Max', 'Adidas Ultraboost', 'Jordan Retro', 'Converse Chuck Taylor', 'Vans Old Skool',
-            'Rolex Submariner', 'Omega Seamaster', 'Cartier Tank', 'Patek Philippe', 'Audemars Piguet',
-            'Louis Vuitton Bag', 'Gucci Belt', 'Hermes Scarf', 'Chanel Perfume', 'Dior Lipstick'
         ];
 
         $brands = ['Apple', 'Samsung', 'Google', 'Microsoft'];
@@ -36,10 +31,10 @@ class ProductSeeder extends Seeder
             // Sometimes add brand to product name
             $productName = rand(0, 1) ? $brand . ' ' . $baseName : $baseName;
             
-            // Generate random sales date within the last 2 years
-            $startDate = Carbon::now()->subYears(1);
-            $endDate = Carbon::now();
-            $salesDate = $startDate->copy()->addDays(rand(0, $endDate->diffInDays($startDate)));
+            // Generate random sales date for the entire year 2025
+            $startDate = Carbon::create(2025, 1, 1);
+            $endDate = Carbon::create(2025, 12, 31);
+            $salesDate = $startDate->copy()->addDays(rand(0, $startDate->diffInDays($endDate)));
             
             // Generate realistic amount based on product type
             $baseAmount = rand(10, 2000);

@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Carbon\Carbon;
 
 class DynamicDashboardController extends Controller
 {
@@ -76,6 +77,14 @@ class DynamicDashboardController extends Controller
             $data = [];
 
             if ($detail->module_name === 'products' && $detail->x_axis && $detail->y_axis) {
+                // Apply default date range if no specific filter is provided
+                $dateRange = null;
+                if (!$from && !$to && $detail->date_range) {
+                    $dateRange = $this->calculateDateRange($detail->date_range);
+                    $from = $dateRange['from']?->format('Y-m-d');
+                    $to = $dateRange['to']?->format('Y-m-d');
+                }
+                
                 $rows = Product::query()
                     ->when($from, function ($q) use ($from) {
                         $q->whereDate('sales_date', '>=', $from);
@@ -103,6 +112,7 @@ class DynamicDashboardController extends Controller
                 'yLabel' => $detail->y_axis,
                 'chartId' => $detail->chart_id,
                 'moduleName' => $detail->module_name,
+                'dateRange' => $detail->date_range,
                 'widthPx' => $detail->width_px,
                 'heightPx' => $detail->height_px,
             ];
@@ -180,6 +190,7 @@ class DynamicDashboardController extends Controller
             'module_name' => ['required', 'string', 'max:255'],
             'x_axis' => ['nullable', 'string', 'max:255'],
             'y_axis' => ['nullable', 'string', 'max:255'],
+            'date_range' => ['nullable', 'string', 'in:last_7_days,this_week,last_15_days,this_month,last_month,this_year'],
         ]);
 
         DashboardChartDetail::create([
@@ -188,6 +199,7 @@ class DynamicDashboardController extends Controller
             'x_axis' => $validated['x_axis'] ?? null,
             'y_axis' => $validated['y_axis'] ?? null,
             'module_name' => $validated['module_name'],
+            'date_range' => $validated['date_range'] ?? null,
         ]);
 
         return redirect()
@@ -211,6 +223,7 @@ class DynamicDashboardController extends Controller
             'module_name' => ['required', 'string', 'max:255'],
             'x_axis' => ['nullable', 'string', 'max:255'],
             'y_axis' => ['nullable', 'string', 'max:255'],
+            'date_range' => ['nullable', 'string', 'in:last_7_days,this_week,last_15_days,this_month,last_month,this_year'],
         ]);
 
         $detail->update([
@@ -218,6 +231,7 @@ class DynamicDashboardController extends Controller
             'module_name' => $validated['module_name'],
             'x_axis' => $validated['x_axis'] ?? null,
             'y_axis' => $validated['y_axis'] ?? null,
+            'date_range' => $validated['date_range'] ?? null,
         ]);
 
         return redirect()
@@ -268,6 +282,7 @@ class DynamicDashboardController extends Controller
         $to = $request->query('to');
         $detailId = $request->query('detail_id');
         $dateFieldOverride = $request->query('date_field');
+        $dateRangeOverride = $request->query('date_range');
 
         $chartConfigs = [];
 
@@ -283,6 +298,17 @@ class DynamicDashboardController extends Controller
 
             if ($detail->module_name === 'products' && $detail->x_axis && $detail->y_axis) {
                 $dateField = $dateFieldOverride ?: 'sales_date';
+                
+                // Apply date range (override or default) if no specific from/to dates are provided
+                if (!$from && !$to) {
+                    $rangeToUse = $dateRangeOverride ?: $detail->date_range;
+                    if ($rangeToUse) {
+                        $dateRange = $this->calculateDateRange($rangeToUse);
+                        $from = $dateRange['from']?->format('Y-m-d');
+                        $to = $dateRange['to']?->format('Y-m-d');
+                    }
+                }
+                
                 $rows = Product::query()
                     ->when($from, function ($q) use ($from, $dateField) {
                         $q->whereDate($dateField, '>=', $from);
@@ -310,6 +336,7 @@ class DynamicDashboardController extends Controller
                 'yLabel' => $detail->y_axis,
                 'chartId' => $detail->chart_id,
                 'moduleName' => $detail->module_name,
+                'dateRange' => $detail->date_range,
                 'widthPx' => $detail->width_px,
                 'heightPx' => $detail->height_px,
             ];
@@ -336,5 +363,54 @@ class DynamicDashboardController extends Controller
         $detail->save();
 
         return response()->json(['message' => 'saved']);
+    }
+
+    /**
+     * Calculate date range based on the provided range type.
+     */
+    private function calculateDateRange(string $dateRange): array
+    {
+        $now = Carbon::now();
+        
+        switch ($dateRange) {
+            case 'last_7_days':
+                return [
+                    'from' => $now->copy()->subDays(7)->startOfDay(),
+                    'to' => $now->copy()->endOfDay()
+                ];
+            
+            case 'this_week':
+                return [
+                    'from' => $now->copy()->startOfWeek(),
+                    'to' => $now->copy()->endOfWeek()
+                ];
+            
+            case 'last_15_days':
+                return [
+                    'from' => $now->copy()->subDays(15)->startOfDay(),
+                    'to' => $now->copy()->endOfDay()
+                ];
+            
+            case 'this_month':
+                return [
+                    'from' => $now->copy()->startOfMonth(),
+                    'to' => $now->copy()->endOfMonth()
+                ];
+            
+            case 'last_month':
+                return [
+                    'from' => $now->copy()->subMonth()->startOfMonth(),
+                    'to' => $now->copy()->subMonth()->endOfMonth()
+                ];
+            
+            case 'this_year':
+                return [
+                    'from' => $now->copy()->startOfYear(),
+                    'to' => $now->copy()->endOfYear()
+                ];
+            
+            default:
+                return ['from' => null, 'to' => null];
+        }
     }
 }
