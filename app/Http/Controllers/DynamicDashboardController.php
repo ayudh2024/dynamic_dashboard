@@ -50,6 +50,7 @@ class DynamicDashboardController extends Controller
 
         $details = DashboardChartDetail::with('chart')
             ->where('dashboard_id', $dashboard->id)
+            ->orderBy('sort_order')
             ->get();
 
         $chartTypeMap = [
@@ -193,6 +194,10 @@ class DynamicDashboardController extends Controller
             'date_range' => ['nullable', 'string', 'in:last_7_days,this_week,last_15_days,this_month,last_month,this_year'],
         ]);
 
+        // Get the next sort order for this dashboard
+        $maxSortOrder = DashboardChartDetail::where('dashboard_id', $dashboard->id)
+            ->max('sort_order') ?? 0;
+
         DashboardChartDetail::create([
             'dashboard_id' => $dashboard->id,
             'chart_id' => $validated['chart_id'],
@@ -200,6 +205,7 @@ class DynamicDashboardController extends Controller
             'y_axis' => $validated['y_axis'] ?? null,
             'module_name' => $validated['module_name'],
             'date_range' => $validated['date_range'] ?? null,
+            'sort_order' => $maxSortOrder + 1,
         ]);
 
         return redirect()
@@ -264,6 +270,7 @@ class DynamicDashboardController extends Controller
     {
         $details = DashboardChartDetail::with('chart')
             ->where('dashboard_id', $dashboard->id)
+            ->orderBy('sort_order')
             ->get();
 
         $chartTypeMap = [
@@ -363,6 +370,35 @@ class DynamicDashboardController extends Controller
         $detail->save();
 
         return response()->json(['message' => 'saved']);
+    }
+
+    /**
+     * Update chart order (AJAX).
+     */
+    public function updateOrder(Request $request, Dashboard $dashboard)
+    {
+        $validated = $request->validate([
+            'chart_ids' => ['required', 'array'],
+            'chart_ids.*' => ['required', 'integer', 'exists:dashboard_chart_details,id'],
+        ]);
+
+        // Verify all chart details belong to this dashboard
+        $chartDetails = DashboardChartDetail::whereIn('id', $validated['chart_ids'])
+            ->where('dashboard_id', $dashboard->id)
+            ->get();
+
+        if ($chartDetails->count() !== count($validated['chart_ids'])) {
+            return response()->json(['message' => 'Some charts do not belong to this dashboard'], 422);
+        }
+
+        // Update sort order based on the new order
+        foreach ($validated['chart_ids'] as $index => $chartId) {
+            DashboardChartDetail::where('id', $chartId)
+                ->where('dashboard_id', $dashboard->id)
+                ->update(['sort_order' => $index + 1]);
+        }
+
+        return response()->json(['message' => 'Chart order updated successfully']);
     }
 
     /**

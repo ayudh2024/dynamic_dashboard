@@ -834,9 +834,59 @@
                     bubbleScroll: true,
                     scroll: true,
                     scrollSensitivity: 30,
-                    scrollSpeed: 10
+                    scrollSpeed: 10,
+                    onEnd: function (evt) {
+                        // Get the new order of chart IDs
+                        var chartCards = container.querySelectorAll('.chart-card');
+                        var chartIds = [];
+                        chartCards.forEach(function (card) {
+                            var detailId = card.getAttribute('data-detail-id');
+                            if (detailId) {
+                                chartIds.push(parseInt(detailId, 10));
+                            }
+                        });
+                        
+                        // Send the new order to the server
+                        if (chartIds.length > 0) {
+                            saveChartOrder(chartIds);
+                        }
+                    }
                 });
                 window.__chartsSortable = sortable;
+
+                // Function to save chart order to the server
+                function saveChartOrder(chartIds) {
+                    try {
+                        var url = '{{ route('dynamic-dashboard.charts.order', $dashboard) }}';
+                        var formData = new FormData();
+                        formData.append('_token', '{{ csrf_token() }}');
+                        chartIds.forEach(function (id, index) {
+                            formData.append('chart_ids[' + index + ']', id);
+                        });
+                        
+                        fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            body: formData
+                        })
+                        .then(function (response) {
+                            if (!response.ok) {
+                                console.error('Failed to save chart order:', response.statusText);
+                            }
+                            return response.json();
+                        })
+                        .then(function (data) {
+                            console.log('Chart order saved successfully:', data.message);
+                        })
+                        .catch(function (error) {
+                            console.error('Error saving chart order:', error);
+                        });
+                    } catch (e) {
+                        console.error('Error in saveChartOrder:', e);
+                    }
+                }
 
                 // Enable resizing of chart cards
                 function initResizableCharts() {

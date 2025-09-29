@@ -36,6 +36,11 @@ Route::post('/dynamic-dashboard/{dashboard}/charts/{detail}/size', [DynamicDashb
     ->whereNumber('detail')
     ->name('dynamic-dashboard.charts.size');
 
+// AJAX: update chart order for a dashboard
+Route::post('/dynamic-dashboard/{dashboard}/charts/order', [DynamicDashboardController::class, 'updateOrder'])
+    ->whereNumber('dashboard')
+    ->name('dynamic-dashboard.charts.order');
+
 // Show dashboard (must be after static routes)
 Route::get('/dynamic-dashboard/{dashboard}', [DynamicDashboardController::class, 'show'])
     ->whereNumber('dashboard')
