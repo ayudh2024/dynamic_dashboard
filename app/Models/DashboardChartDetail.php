@@ -22,6 +22,8 @@ class DashboardChartDetail extends Model
         'y_axis',
         'module_name',
         'date_range',
+        'amount_min_range',
+        'amount_max_range',
         'width_px',
         'height_px',
     ];

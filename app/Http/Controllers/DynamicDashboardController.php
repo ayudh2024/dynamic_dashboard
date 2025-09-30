@@ -104,6 +104,12 @@ class DynamicDashboardController extends Controller
                     ->when($to, function ($q) use ($to, $dateField) {
                         $q->whereDate($dateField, '<=', $to);
                     })
+                    ->when($detail->amount_min_range, function ($q) use ($detail) {
+                        $q->where($detail->x_axis, '>=', $detail->amount_min_range);
+                    })
+                    ->when($detail->amount_max_range, function ($q) use ($detail) {
+                        $q->where($detail->x_axis, '<=', $detail->amount_max_range);
+                    })
                     ->selectRaw("{$detail->y_axis} as label, SUM({$detail->x_axis}) as value")
                     ->groupBy($detail->y_axis)
                     ->orderBy('label')
@@ -125,6 +131,8 @@ class DynamicDashboardController extends Controller
                 'chartId' => $detail->chart_id,
                 'moduleName' => $detail->module_name,
                 'dateRange' => $detail->date_range,
+                'amountMinRange' => $detail->amount_min_range,
+                'amountMaxRange' => $detail->amount_max_range,
                 'widthPx' => $detail->width_px,
                 'heightPx' => $detail->height_px,
             ];
@@ -203,6 +211,8 @@ class DynamicDashboardController extends Controller
             'x_axis' => ['nullable', 'string', 'max:255'],
             'y_axis' => ['nullable', 'string', 'max:255'],
             'date_range' => ['nullable', 'string', 'in:last_7_days,this_week,last_15_days,this_month,last_month,this_year'],
+            'amount_min_range' => ['nullable', 'numeric', 'min:0'],
+            'amount_max_range' => ['nullable', 'numeric', 'min:0', 'gte:amount_min_range'],
         ]);
 
         // Get the next sort order for this dashboard
@@ -216,6 +226,8 @@ class DynamicDashboardController extends Controller
             'y_axis' => $validated['y_axis'] ?? null,
             'module_name' => $validated['module_name'],
             'date_range' => $validated['date_range'] ?? null,
+            'amount_min_range' => $validated['amount_min_range'] ?? null,
+            'amount_max_range' => $validated['amount_max_range'] ?? null,
             'sort_order' => $maxSortOrder + 1,
         ]);
 
@@ -241,6 +253,8 @@ class DynamicDashboardController extends Controller
             'x_axis' => ['nullable', 'string', 'max:255'],
             'y_axis' => ['nullable', 'string', 'max:255'],
             'date_range' => ['nullable', 'string', 'in:last_7_days,this_week,last_15_days,this_month,last_month,this_year'],
+            'amount_min_range' => ['nullable', 'numeric', 'min:0'],
+            'amount_max_range' => ['nullable', 'numeric', 'min:0', 'gte:amount_min_range'],
         ]);
 
         $detail->update([
@@ -249,6 +263,8 @@ class DynamicDashboardController extends Controller
             'x_axis' => $validated['x_axis'] ?? null,
             'y_axis' => $validated['y_axis'] ?? null,
             'date_range' => $validated['date_range'] ?? null,
+            'amount_min_range' => $validated['amount_min_range'] ?? null,
+            'amount_max_range' => $validated['amount_max_range'] ?? null,
         ]);
 
         return redirect()
@@ -341,6 +357,12 @@ class DynamicDashboardController extends Controller
                     ->when($to, function ($q) use ($to, $dateField) {
                         $q->whereDate($dateField, '<=', $to);
                     })
+                    ->when($detail->amount_min_range, function ($q) use ($detail) {
+                        $q->where($detail->x_axis, '>=', $detail->amount_min_range);
+                    })
+                    ->when($detail->amount_max_range, function ($q) use ($detail) {
+                        $q->where($detail->x_axis, '<=', $detail->amount_max_range);
+                    })
                     ->selectRaw("{$detail->y_axis} as label, SUM({$detail->x_axis}) as value")
                     ->groupBy($detail->y_axis)
                     ->orderBy('label')
@@ -362,6 +384,8 @@ class DynamicDashboardController extends Controller
                 'chartId' => $detail->chart_id,
                 'moduleName' => $detail->module_name,
                 'dateRange' => $detail->date_range,
+                'amountMinRange' => $detail->amount_min_range,
+                'amountMaxRange' => $detail->amount_max_range,
                 'widthPx' => $detail->width_px,
                 'heightPx' => $detail->height_px,
             ];

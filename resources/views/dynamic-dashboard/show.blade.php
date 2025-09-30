@@ -64,7 +64,7 @@
                                         <h3 class="font-medium text-gray-900">{{ ucfirst($cfg['moduleName']) }} - {{ $cfg['title'] }}</h3>
                                     </div>
                                     <div class="flex items-center gap-3"><div class="flex items-center gap-1">
-                                            <button type="button" onclick="openEditChartModal({{ $cfg['id'] }}, {{ $cfg['chartId'] }}, '{{ $cfg['moduleName'] }}', '{{ $cfg['xLabel'] }}', '{{ $cfg['yLabel'] }}', '{{ $cfg['dateRange'] ?? '' }}')" 
+                                            <button type="button" onclick="openEditChartModal({{ $cfg['id'] }}, {{ $cfg['chartId'] }}, '{{ $cfg['moduleName'] }}', '{{ $cfg['xLabel'] }}', '{{ $cfg['yLabel'] }}', '{{ $cfg['dateRange'] ?? '' }}', '{{ $cfg['amountMinRange'] ?? '' }}', '{{ $cfg['amountMaxRange'] ?? '' }}')" 
                            
                            
                            
@@ -202,6 +202,17 @@
                         </select>
                     </div>
 
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="amount_min_range" class="block text-sm font-medium text-gray-700">Amount Min Range</label>
+                            <input type="number" id="amount_min_range" name="amount_min_range" step="0.01" min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label for="amount_max_range" class="block text-sm font-medium text-gray-700">Amount Max Range</label>
+                            <input type="number" id="amount_max_range" name="amount_max_range" step="0.01" min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="0.00">
+                        </div>
+                    </div>
+
                     <div class="flex items-center justify-end gap-3 pt-2">
                         <button type="button" onclick="closeAddChartModal()" class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</button>
                         <button type="submit" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Add</button>
@@ -266,6 +277,17 @@
                         </select>
                     </div>
 
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="edit_amount_min_range" class="block text-sm font-medium text-gray-700">Amount Min Range</label>
+                            <input type="number" id="edit_amount_min_range" name="amount_min_range" step="0.01" min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label for="edit_amount_max_range" class="block text-sm font-medium text-gray-700">Amount Max Range</label>
+                            <input type="number" id="edit_amount_max_range" name="amount_max_range" step="0.01" min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="0.00">
+                        </div>
+                    </div>
+
                     <div class="flex items-center justify-end gap-3 pt-2">
                         <button type="button" onclick="closeEditChartModal()" class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</button>
                         <button type="submit" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Update</button>
@@ -302,7 +324,7 @@
             const editYAxisSelect = document.getElementById('edit_y_axis');
             const editChartIdSelect = document.getElementById('edit_chart_id');
 
-            function openEditChartModal(chartDetailId, chartId, moduleName, xLabel, yLabel, dateRange) {
+            function openEditChartModal(chartDetailId, chartId, moduleName, xLabel, yLabel, dateRange, amountMinRange, amountMaxRange) {
                 // Set the form action
                 editChartForm.action = '{{ route('dynamic-dashboard.charts.update', [$dashboard, ':chartDetailId']) }}'.replace(':chartDetailId', chartDetailId);
                 
@@ -310,6 +332,8 @@
                 editChartIdSelect.value = chartId || '';
                 editModuleSelect.value = moduleName || 'products';
                 document.getElementById('edit_date_range').value = dateRange || '';
+                document.getElementById('edit_amount_min_range').value = amountMinRange || '';
+                document.getElementById('edit_amount_max_range').value = amountMaxRange || '';
                 
                 // Store the axis values to set later
                 window.pendingAxisValues = { xLabel: xLabel || '', yLabel: yLabel || '' };
@@ -1077,6 +1101,43 @@
                     });
                 }, 300));
             })();
+        </script>
+
+        <script>
+            // Add validation for amount range fields
+            function validateAmountRange(minField, maxField) {
+                const minValue = parseFloat(minField.value) || 0;
+                const maxValue = parseFloat(maxField.value) || 0;
+                
+                if (minField.value && maxField.value && minValue > maxValue) {
+                    maxField.setCustomValidity('Maximum amount must be greater than or equal to minimum amount');
+                    return false;
+                } else {
+                    maxField.setCustomValidity('');
+                    return true;
+                }
+            }
+
+            // Add event listeners for amount range validation
+            document.addEventListener('DOMContentLoaded', function() {
+                // For Add Chart modal
+                const minRangeAdd = document.getElementById('amount_min_range');
+                const maxRangeAdd = document.getElementById('amount_max_range');
+                
+                if (minRangeAdd && maxRangeAdd) {
+                    minRangeAdd.addEventListener('input', () => validateAmountRange(minRangeAdd, maxRangeAdd));
+                    maxRangeAdd.addEventListener('input', () => validateAmountRange(minRangeAdd, maxRangeAdd));
+                }
+                
+                // For Edit Chart modal
+                const minRangeEdit = document.getElementById('edit_amount_min_range');
+                const maxRangeEdit = document.getElementById('edit_amount_max_range');
+                
+                if (minRangeEdit && maxRangeEdit) {
+                    minRangeEdit.addEventListener('input', () => validateAmountRange(minRangeEdit, maxRangeEdit));
+                    maxRangeEdit.addEventListener('input', () => validateAmountRange(minRangeEdit, maxRangeEdit));
+                }
+            });
         </script>
     </body>
 </html>

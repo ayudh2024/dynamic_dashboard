@@ -21,6 +21,8 @@ return new class extends Migration
             $table->unsignedInteger('width_px')->nullable();
             $table->unsignedInteger('height_px')->nullable();
             $table->string('date_range')->nullable();
+            $table->decimal('amount_min_range', 15, 2)->nullable();
+            $table->decimal('amount_max_range', 15, 2)->nullable();
             $table->integer('sort_order')->default(0);
             $table->timestamps();
         });
