@@ -101,12 +101,6 @@
                                         </select>
                                     </div>
                                     <div class="shrink-0">
-                                        <label class="block text-xs font-medium text-gray-700">Filter By</label>
-                                        <select name="date_field" class="date-field-select mt-1 block w-30 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                                            <option value="">Loading...</option>
-                                        </select>
-                                    </div>
-                                    <div class="shrink-0">
                                         <label class="block text-xs font-medium text-gray-700">From</label>
                                         <input type="date" name="from" class="mt-1 block w-25 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm px-2 py-1" />
                                     </div>
@@ -550,36 +544,15 @@
                 const moduleFieldsUrl = '{{ route('dynamic-dashboard.module-fields') }}';
                 const dataUrlBase = '{{ route('dynamic-dashboard.data', $dashboard) }}';
 
-                async function populateDateFields(form) {
-                    const module = form.getAttribute('data-module');
-                    const select = form.querySelector('select.date-field-select');
-                    if (!module || !select) return;
-                    try {
-                        const res = await fetch(moduleFieldsUrl + '?' + new URLSearchParams({ module }).toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                        const data = await res.json();
-                        const options = (data.date && data.date.length ? data.date : ['sales_date']).map(function (name) {
-                            const opt = document.createElement('option');
-                            opt.value = name;
-                            opt.textContent = name;
-                            return opt;
-                        });
-                        select.innerHTML = '';
-                        options.forEach(o => select.appendChild(o));
-                    } catch (e) {
-                        console.error(e);
-                        select.innerHTML = '<option value="sales_date">sales_date</option>';
-                    }
-                }
+                // Removed populateDateFields function as date field selector is no longer needed
 
                 async function fetchAndRender(form) {
                     const detailId = form.getAttribute('data-detail-id');
-                    const dateField = form.querySelector('select[name="date_field"]').value;
                     const dateRange = form.querySelector('select[name="date_range"]').value;
                     const from = form.querySelector('input[name="from"]').value;
                     const to = form.querySelector('input[name="to"]').value;
                     const params = new URLSearchParams();
                     if (detailId) params.set('detail_id', detailId);
-                    if (dateField) params.set('date_field', dateField);
                     if (dateRange) params.set('date_range', dateRange);
                     if (from) params.set('from', from);
                     if (to) params.set('to', to);
@@ -717,41 +690,54 @@
                     }
                 }
 
-                // Helper function to calculate date ranges on frontend
+                // Helper function to calculate date ranges on frontend (matches backend Carbon logic)
                 function calculateDateRange(dateRange) {
                     const now = new Date();
-                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                     
                     switch (dateRange) {
                         case 'last_7_days':
-                            const sevenDaysAgo = new Date(today);
-                            sevenDaysAgo.setDate(today.getDate() - 7);
+                            const sevenDaysAgo = new Date(now);
+                            sevenDaysAgo.setDate(now.getDate() - 7);
+                            sevenDaysAgo.setHours(0, 0, 0, 0); // start of day
+                            const todayEnd = new Date(now);
+                            todayEnd.setHours(23, 59, 59, 999); // end of day
                             return {
                                 from: sevenDaysAgo.toISOString().split('T')[0],
-                                to: today.toISOString().split('T')[0]
+                                to: todayEnd.toISOString().split('T')[0]
                             };
                         
                         case 'this_week':
-                            const startOfWeek = new Date(today);
-                            startOfWeek.setDate(today.getDate() - today.getDay());
+                            const startOfWeek = new Date(now);
+                            // JavaScript getDay() returns 0 for Sunday, but we want Monday as start
+                            const dayOfWeek = startOfWeek.getDay();
+                            const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                            startOfWeek.setDate(now.getDate() - daysFromMonday);
+                            startOfWeek.setHours(0, 0, 0, 0);
+                            
                             const endOfWeek = new Date(startOfWeek);
                             endOfWeek.setDate(startOfWeek.getDate() + 6);
+                            endOfWeek.setHours(23, 59, 59, 999);
                             return {
                                 from: startOfWeek.toISOString().split('T')[0],
                                 to: endOfWeek.toISOString().split('T')[0]
                             };
                         
                         case 'last_15_days':
-                            const fifteenDaysAgo = new Date(today);
-                            fifteenDaysAgo.setDate(today.getDate() - 15);
+                            const fifteenDaysAgo = new Date(now);
+                            fifteenDaysAgo.setDate(now.getDate() - 15);
+                            fifteenDaysAgo.setHours(0, 0, 0, 0);
+                            const todayEnd15 = new Date(now);
+                            todayEnd15.setHours(23, 59, 59, 999);
                             return {
                                 from: fifteenDaysAgo.toISOString().split('T')[0],
-                                to: today.toISOString().split('T')[0]
+                                to: todayEnd15.toISOString().split('T')[0]
                             };
                         
                         case 'this_month':
                             const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                            startOfMonth.setHours(0, 0, 0, 0);
                             const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                            endOfMonth.setHours(23, 59, 59, 999);
                             return {
                                 from: startOfMonth.toISOString().split('T')[0],
                                 to: endOfMonth.toISOString().split('T')[0]
@@ -759,7 +745,9 @@
                         
                         case 'last_month':
                             const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                            startOfLastMonth.setHours(0, 0, 0, 0);
                             const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                            endOfLastMonth.setHours(23, 59, 59, 999);
                             return {
                                 from: startOfLastMonth.toISOString().split('T')[0],
                                 to: endOfLastMonth.toISOString().split('T')[0]
@@ -767,7 +755,9 @@
                         
                         case 'this_year':
                             const startOfYear = new Date(now.getFullYear(), 0, 1);
+                            startOfYear.setHours(0, 0, 0, 0);
                             const endOfYear = new Date(now.getFullYear(), 11, 31);
+                            endOfYear.setHours(23, 59, 59, 999);
                             return {
                                 from: startOfYear.toISOString().split('T')[0],
                                 to: endOfYear.toISOString().split('T')[0]
@@ -779,7 +769,6 @@
                 }
 
                 forms.forEach(function (form) {
-                    populateDateFields(form);
                     
                     // Handle date range selection
                     const dateRangeSelect = form.querySelector('select[name="date_range"]');

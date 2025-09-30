@@ -91,9 +91,9 @@ class DynamicDashboardController extends Controller
                 
                 // Determine which date field to use for filtering
                 $dateField = 'sales_date'; // default
-                if (in_array($detail->y_axis, ['purchase_date', 'created_at', 'updated_at'])) {
+                if (in_array($detail->y_axis, ['purchase_date', 'sales_date', 'created_at', 'updated_at'])) {
                     $dateField = $detail->y_axis;
-                } elseif (in_array($detail->x_axis, ['purchase_date', 'created_at', 'updated_at'])) {
+                } elseif (in_array($detail->x_axis, ['purchase_date', 'sales_date', 'created_at', 'updated_at'])) {
                     $dateField = $detail->x_axis;
                 }
                 
@@ -325,6 +325,13 @@ class DynamicDashboardController extends Controller
                         $from = $dateRange['from']?->format('Y-m-d');
                         $to = $dateRange['to']?->format('Y-m-d');
                     }
+                }
+                
+                // Ensure we have proper date field selection logic
+                if (in_array($detail->y_axis, ['purchase_date', 'sales_date', 'created_at', 'updated_at'])) {
+                    $dateField = $detail->y_axis;
+                } elseif (in_array($detail->x_axis, ['purchase_date', 'sales_date', 'created_at', 'updated_at'])) {
+                    $dateField = $detail->x_axis;
                 }
                 
                 $rows = Product::query()
