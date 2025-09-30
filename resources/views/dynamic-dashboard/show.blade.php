@@ -499,8 +499,15 @@
                         options.series = [{
                             type: chartType,
                             angleKey: 'value',
-                            labelKey: 'category',
-                            fills: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316']
+                            calloutLabelKey: 'category',
+                            sectorLabelKey: 'value',
+                            fills: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'],
+                            sectorLabel: {
+                                enabled: true,
+                                formatter: function(params) {
+                                    return params.datum.value;
+                                }
+                            }
                         }];
                     } else if (chartType === 'scatter') {
                         options.series = [{
@@ -636,8 +643,15 @@
                                 updateOptions.series = [{
                                     type: chartType,
                                     angleKey: 'value',
-                                    labelKey: 'category',
-                                    fills: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316']
+                                    calloutLabelKey: 'category',
+                                    sectorLabelKey: 'value',
+                                    fills: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'],
+                                    sectorLabel: {
+                                        enabled: true,
+                                        formatter: function(params) {
+                                            return params.datum.value;
+                                        }
+                                    }
                                 }];
                             } else if (chartType === 'scatter') {
                                 updateOptions.series = [{

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Models\Dashboard;
 use App\Models\Chart;
 use App\Models\DashboardChartDetail;
@@ -77,7 +78,7 @@ class DynamicDashboardController extends Controller
             $labels = [];
             $data = [];
 
-            if ($detail->module_name === 'products' && $detail->x_axis && $detail->y_axis) {
+            if ($detail->module_name && $detail->x_axis && $detail->y_axis) {
                 // Use individual date range for each chart
                 $from = $globalFrom;
                 $to = $globalTo;
@@ -89,35 +90,13 @@ class DynamicDashboardController extends Controller
                     $to = $dateRange['to']?->format('Y-m-d');
                 }
                 
-                // Determine which date field to use for filtering
-                $dateField = 'sales_date'; // default
-                if (in_array($detail->y_axis, ['purchase_date', 'sales_date', 'created_at', 'updated_at'])) {
-                    $dateField = $detail->y_axis;
-                } elseif (in_array($detail->x_axis, ['purchase_date', 'sales_date', 'created_at', 'updated_at'])) {
-                    $dateField = $detail->x_axis;
-                }
+                // Dynamically determine which date field to use for filtering
+                $dateField = $this->determineDateField($detail->module_name, $detail->x_axis, $detail->y_axis, 'sales_date');
                 
-                $rows = Product::query()
-                    ->when($from, function ($q) use ($from, $dateField) {
-                        $q->whereDate($dateField, '>=', $from);
-                    })
-                    ->when($to, function ($q) use ($to, $dateField) {
-                        $q->whereDate($dateField, '<=', $to);
-                    })
-                    ->when($detail->amount_min_range, function ($q) use ($detail) {
-                        $q->where($detail->x_axis, '>=', $detail->amount_min_range);
-                    })
-                    ->when($detail->amount_max_range, function ($q) use ($detail) {
-                        $q->where($detail->x_axis, '<=', $detail->amount_max_range);
-                    })
-                    ->selectRaw("{$detail->y_axis} as label, SUM({$detail->x_axis}) as value")
-                    ->groupBy($detail->y_axis)
-                    ->orderBy('label')
-                    ->get();
-                foreach ($rows as $row) {
-                    $labels[] = (string) $row->label;
-                    $data[] = is_numeric($row->value) ? (float) $row->value : null;
-                }
+                // Execute dynamic query for any module
+                $result = $this->executeModuleQuery($detail->module_name, $detail, $from, $to, $dateField);
+                $labels = $result['labels'];
+                $data = $result['data'];
             }
 
             $chartConfigs[] = [
@@ -330,7 +309,7 @@ class DynamicDashboardController extends Controller
             $labels = [];
             $data = [];
 
-            if ($detail->module_name === 'products' && $detail->x_axis && $detail->y_axis) {
+            if ($detail->module_name && $detail->x_axis && $detail->y_axis) {
                 $dateField = $dateFieldOverride ?: 'sales_date';
                 
                 // Apply date range (override or default) if no specific from/to dates are provided
@@ -343,34 +322,15 @@ class DynamicDashboardController extends Controller
                     }
                 }
                 
-                // Ensure we have proper date field selection logic
-                if (in_array($detail->y_axis, ['purchase_date', 'sales_date', 'created_at', 'updated_at'])) {
-                    $dateField = $detail->y_axis;
-                } elseif (in_array($detail->x_axis, ['purchase_date', 'sales_date', 'created_at', 'updated_at'])) {
-                    $dateField = $detail->x_axis;
+                // Dynamically determine the date field, with override support
+                if (!$dateFieldOverride) {
+                    $dateField = $this->determineDateField($detail->module_name, $detail->x_axis, $detail->y_axis, 'sales_date');
                 }
                 
-                $rows = Product::query()
-                    ->when($from, function ($q) use ($from, $dateField) {
-                        $q->whereDate($dateField, '>=', $from);
-                    })
-                    ->when($to, function ($q) use ($to, $dateField) {
-                        $q->whereDate($dateField, '<=', $to);
-                    })
-                    ->when($detail->amount_min_range, function ($q) use ($detail) {
-                        $q->where($detail->x_axis, '>=', $detail->amount_min_range);
-                    })
-                    ->when($detail->amount_max_range, function ($q) use ($detail) {
-                        $q->where($detail->x_axis, '<=', $detail->amount_max_range);
-                    })
-                    ->selectRaw("{$detail->y_axis} as label, SUM({$detail->x_axis}) as value")
-                    ->groupBy($detail->y_axis)
-                    ->orderBy('label')
-                    ->get();
-                foreach ($rows as $row) {
-                    $labels[] = (string) $row->label;
-                    $data[] = is_numeric($row->value) ? (float) $row->value : null;
-                }
+                // Execute dynamic query for any module
+                $result = $this->executeModuleQuery($detail->module_name, $detail, $from, $to, $dateField);
+                $labels = $result['labels'];
+                $data = $result['data'];
             }
 
             $chartConfigs[] = [
@@ -490,5 +450,185 @@ class DynamicDashboardController extends Controller
             default:
                 return ['from' => null, 'to' => null];
         }
+    }
+
+    /**
+     * Get available date fields for a given module/table.
+     */
+    private function getDateFieldsForModule(string $moduleName): array
+    {
+        if (!Schema::hasTable($moduleName)) {
+            return [];
+        }
+
+        $driver = DB::getDriverName();
+        $dateFields = [];
+
+        if ($driver === 'pgsql') {
+            $rows = DB::select(
+                'SELECT column_name AS name, data_type AS type
+                 FROM information_schema.columns
+                 WHERE table_schema = current_schema() AND table_name = ?
+                 ORDER BY ordinal_position',
+                [$moduleName]
+            );
+
+            $dateTypes = ['timestamp without time zone', 'timestamp with time zone', 'time without time zone', 'time with time zone', 'date'];
+
+            foreach ($rows as $row) {
+                $type = strtolower((string) $row->type);
+                if (in_array($type, $dateTypes, true)) {
+                    $dateFields[] = (string) $row->name;
+                }
+            }
+        } else {
+            // For SQLite and MySQL
+            $columns = Schema::getColumnListing($moduleName);
+            
+            foreach ($columns as $column) {
+                $columnType = Schema::getColumnType($moduleName, $column);
+                
+                // Check for common date field patterns
+                if (in_array($columnType, ['date', 'datetime', 'timestamp']) ||
+                    str_contains($column, '_date') ||
+                    str_contains($column, '_at') ||
+                    in_array($column, ['created_at', 'updated_at', 'deleted_at'])) {
+                    $dateFields[] = $column;
+                }
+            }
+        }
+
+        return $dateFields;
+    }
+
+    /**
+     * Dynamically determine the best date field to use for filtering.
+     */
+    private function determineDateField(string $moduleName, ?string $xAxis, ?string $yAxis, string $defaultField = 'created_at'): string
+    {
+        $availableDateFields = $this->getDateFieldsForModule($moduleName);
+        
+        // If no date fields are available, return the default
+        if (empty($availableDateFields)) {
+            return $defaultField;
+        }
+
+        // Priority 1: If y_axis is a date field, use it
+        if ($yAxis && in_array($yAxis, $availableDateFields)) {
+            return $yAxis;
+        }
+
+        // Priority 2: If x_axis is a date field, use it
+        if ($xAxis && in_array($xAxis, $availableDateFields)) {
+            return $xAxis;
+        }
+
+        // Priority 3: Look for common date fields in order of preference
+        $preferredFields = ['sales_date', 'purchase_date', 'created_at', 'updated_at'];
+        foreach ($preferredFields as $field) {
+            if (in_array($field, $availableDateFields)) {
+                return $field;
+            }
+        }
+
+        // Priority 4: Return the first available date field
+        return $availableDateFields[0];
+    }
+
+    /**
+     * Get the model class for a given module name.
+     */
+    private function getModelForModule(string $moduleName): ?string
+    {
+        $modelMap = [
+            'products' => Product::class,
+            'users' => User::class,
+            'dashboards' => Dashboard::class,
+            'charts' => Chart::class,
+            'dashboard_chart_details' => DashboardChartDetail::class,
+        ];
+
+        return $modelMap[$moduleName] ?? null;
+    }
+
+    /**
+     * Execute a dynamic query for any module.
+     */
+    private function executeModuleQuery(string $moduleName, $detail, ?string $from, ?string $to, string $dateField): array
+    {
+        $modelClass = $this->getModelForModule($moduleName);
+        
+        if (!$modelClass) {
+            // Fallback to raw DB query if no model is mapped
+            return $this->executeRawQuery($moduleName, $detail, $from, $to, $dateField);
+        }
+
+        $rows = $modelClass::query()
+            ->when($from, function ($q) use ($from, $dateField) {
+                $q->whereDate($dateField, '>=', $from);
+            })
+            ->when($to, function ($q) use ($to, $dateField) {
+                $q->whereDate($dateField, '<=', $to);
+            })
+            ->when($detail->amount_min_range, function ($q) use ($detail) {
+                $q->where($detail->x_axis, '>=', $detail->amount_min_range);
+            })
+            ->when($detail->amount_max_range, function ($q) use ($detail) {
+                $q->where($detail->x_axis, '<=', $detail->amount_max_range);
+            })
+            ->selectRaw("{$detail->y_axis} as label, SUM({$detail->x_axis}) as value")
+            ->groupBy($detail->y_axis)
+            ->orderBy('label')
+            ->get();
+
+        $labels = [];
+        $data = [];
+        
+        foreach ($rows as $row) {
+            $labels[] = (string) $row->label;
+            $data[] = is_numeric($row->value) ? (float) $row->value : null;
+        }
+
+        return ['labels' => $labels, 'data' => $data];
+    }
+
+    /**
+     * Execute a raw database query for modules without mapped models.
+     */
+    private function executeRawQuery(string $moduleName, $detail, ?string $from, ?string $to, string $dateField): array
+    {
+        $query = DB::table($moduleName);
+
+        if ($from) {
+            $query->whereDate($dateField, '>=', $from);
+        }
+        
+        if ($to) {
+            $query->whereDate($dateField, '<=', $to);
+        }
+
+        if ($detail->amount_min_range) {
+            $query->where($detail->x_axis, '>=', $detail->amount_min_range);
+        }
+
+        if ($detail->amount_max_range) {
+            $query->where($detail->x_axis, '<=', $detail->amount_max_range);
+        }
+
+        $rows = $query
+            ->selectRaw("{$detail->y_axis} as label, SUM({$detail->x_axis}) as value")
+            ->groupBy($detail->y_axis)
+            ->orderBy('label')
+            ->get();
+
+        $labels = [];
+        $data = [];
+        
+        foreach ($rows as $row) {
+            $labels[] = (string) $row->label;
+            $data[] = is_numeric($row->value) ? (float) $row->value : null;
+        }
+
+        return ['labels' => $labels, 'data' => $data];
     }
 }
