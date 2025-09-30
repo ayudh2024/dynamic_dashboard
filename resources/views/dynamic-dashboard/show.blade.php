@@ -1060,6 +1060,7 @@
                     });
                 }
 
+                
                 // Debounce helper
                 function debounce(fn, wait) {
                     var t;
