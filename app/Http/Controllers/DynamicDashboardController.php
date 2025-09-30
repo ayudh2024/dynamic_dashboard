@@ -67,8 +67,8 @@ class DynamicDashboardController extends Controller
 
         $chartConfigs = [];
 
-        $from = $request->query('from');
-        $to = $request->query('to');
+        $globalFrom = $request->query('from');
+        $globalTo = $request->query('to');
 
         foreach ($details as $detail) {
             $chartName = $detail->chart?->name ?? 'Bar Chart';
@@ -78,20 +78,31 @@ class DynamicDashboardController extends Controller
             $data = [];
 
             if ($detail->module_name === 'products' && $detail->x_axis && $detail->y_axis) {
+                // Use individual date range for each chart
+                $from = $globalFrom;
+                $to = $globalTo;
+                
                 // Apply default date range if no specific filter is provided
-                $dateRange = null;
                 if (!$from && !$to && $detail->date_range) {
                     $dateRange = $this->calculateDateRange($detail->date_range);
                     $from = $dateRange['from']?->format('Y-m-d');
                     $to = $dateRange['to']?->format('Y-m-d');
                 }
                 
+                // Determine which date field to use for filtering
+                $dateField = 'sales_date'; // default
+                if (in_array($detail->y_axis, ['purchase_date', 'created_at', 'updated_at'])) {
+                    $dateField = $detail->y_axis;
+                } elseif (in_array($detail->x_axis, ['purchase_date', 'created_at', 'updated_at'])) {
+                    $dateField = $detail->x_axis;
+                }
+                
                 $rows = Product::query()
-                    ->when($from, function ($q) use ($from) {
-                        $q->whereDate('sales_date', '>=', $from);
+                    ->when($from, function ($q) use ($from, $dateField) {
+                        $q->whereDate($dateField, '>=', $from);
                     })
-                    ->when($to, function ($q) use ($to) {
-                        $q->whereDate('sales_date', '<=', $to);
+                    ->when($to, function ($q) use ($to, $dateField) {
+                        $q->whereDate($dateField, '<=', $to);
                     })
                     ->selectRaw("{$detail->y_axis} as label, SUM({$detail->x_axis}) as value")
                     ->groupBy($detail->y_axis)

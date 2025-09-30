@@ -31,19 +31,28 @@ class ProductSeeder extends Seeder
             // Sometimes add brand to product name
             $productName = rand(0, 1) ? $brand . ' ' . $baseName : $baseName;
             
-            // Generate random sales date for the entire year 2025
+            // Generate random purchase date (before sales date)
             $startDate = Carbon::create(2025, 1, 1);
             $endDate = Carbon::create(2025, 12, 31);
             $salesDate = $startDate->copy()->addDays(rand(0, $startDate->diffInDays($endDate)));
             
-            // Generate realistic amount based on product type
-            $baseAmount = rand(10, 2000);
-            $amount = round($baseAmount + (rand(0, 99) / 100), 2);
+            // Purchase date should be before sales date (1-90 days earlier)
+            $purchaseDate = $salesDate->copy()->subDays(rand(1, 90));
+            
+            // Generate realistic amounts based on product type
+            $basePurchaseAmount = rand(10, 1500);
+            $purchaseAmount = round($basePurchaseAmount + (rand(0, 99) / 100), 2);
+            
+            // Sales amount should typically be higher than purchase amount (profit margin)
+            $profitMargin = rand(10, 50) / 100; // 10-50% profit margin
+            $salesAmount = round($purchaseAmount * (1 + $profitMargin), 2);
             
             $products[] = [
                 'name' => $productName,
+                'purchase_date' => $purchaseDate->format('Y-m-d'),
+                'purchase_amount' => $purchaseAmount,
                 'sales_date' => $salesDate->format('Y-m-d'),
-                'amount' => $amount,
+                'sales_amount' => $salesAmount,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];

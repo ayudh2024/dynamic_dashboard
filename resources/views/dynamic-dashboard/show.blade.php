@@ -91,13 +91,13 @@
                                     <div class="shrink-0">
                                         <label class="block text-xs font-medium text-gray-700">Date Range</label>
                                         <select name="date_range" class="date-range-select mt-1 block w-32 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm">
-                                            <option value="">Custom Range</option>
-                                            <option value="last_7_days">Last 7 Days</option>
-                                            <option value="this_week">This Week</option>
-                                            <option value="last_15_days">Last 15 Days</option>
-                                            <option value="this_month">This Month</option>
-                                            <option value="last_month">Last Month</option>
-                                            <option value="this_year">This Year</option>
+                                            <option value="" {{ empty($cfg['dateRange']) ? 'selected' : '' }}>Custom Range</option>
+                                            <option value="last_7_days" {{ $cfg['dateRange'] === 'last_7_days' ? 'selected' : '' }}>Last 7 Days</option>
+                                            <option value="this_week" {{ $cfg['dateRange'] === 'this_week' ? 'selected' : '' }}>This Week</option>
+                                            <option value="last_15_days" {{ $cfg['dateRange'] === 'last_15_days' ? 'selected' : '' }}>Last 15 Days</option>
+                                            <option value="this_month" {{ $cfg['dateRange'] === 'this_month' ? 'selected' : '' }}>This Month</option>
+                                            <option value="last_month" {{ $cfg['dateRange'] === 'last_month' ? 'selected' : '' }}>Last Month</option>
+                                            <option value="this_year" {{ $cfg['dateRange'] === 'this_year' ? 'selected' : '' }}>This Year</option>
                                         </select>
                                     </div>
                                     <div class="shrink-0">
@@ -785,6 +785,14 @@
                     const dateRangeSelect = form.querySelector('select[name="date_range"]');
                     const fromInput = form.querySelector('input[name="from"]');
                     const toInput = form.querySelector('input[name="to"]');
+                    
+                    // Set initial date range if a default is selected
+                    if (dateRangeSelect && dateRangeSelect.value) {
+                        const selectedRange = dateRangeSelect.value;
+                        const dates = calculateDateRange(selectedRange);
+                        fromInput.value = dates.from;
+                        toInput.value = dates.to;
+                    }
                     
                     if (dateRangeSelect) {
                         dateRangeSelect.addEventListener('change', function () {

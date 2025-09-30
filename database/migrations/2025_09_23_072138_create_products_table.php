@@ -14,8 +14,10 @@ return new class extends Migration
         Schema::create('products', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->date('purchase_date');
+            $table->decimal('purchase_amount', 10, 2);
             $table->date('sales_date');
-            $table->decimal('amount', 10, 2);
+            $table->decimal('sales_amount', 10, 2);
             $table->timestamps();
         });
     }
