@@ -17,6 +17,7 @@ return new class extends Migration
             $table->foreignId('chart_id')->constrained('charts')->cascadeOnDelete();
             $table->string('x_axis')->nullable();
             $table->string('y_axis')->nullable();
+            $table->json('grid_columns')->nullable();
             $table->string('module_name');
             $table->unsignedInteger('width_px')->nullable();
             $table->unsignedInteger('height_px')->nullable();

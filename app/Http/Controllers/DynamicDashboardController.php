@@ -64,6 +64,7 @@ class DynamicDashboardController extends Controller
             'Radar Chart' => 'radar',
             'Bubble Chart' => 'bubble',
             'Polar Area Chart' => 'polarArea',
+            'Grid' => 'grid',
         ];
 
         $chartConfigs = [];
@@ -83,8 +84,12 @@ class DynamicDashboardController extends Controller
                 $from = $globalFrom;
                 $to = $globalTo;
                 
-                // Apply default date range if no specific filter is provided
-                if (!$from && !$to && $detail->date_range) {
+                // Check if this is a grid chart to determine filtering behavior
+                $chart = $detail->chart;
+                $isGridChart = $chart && $chart->name === 'Grid';
+                
+                // Apply default date range if no specific filter is provided (only for non-grid charts)
+                if (!$from && !$to && $detail->date_range && !$isGridChart) {
                     $dateRange = $this->calculateDateRange($detail->date_range);
                     $from = $dateRange['from']?->format('Y-m-d');
                     $to = $dateRange['to']?->format('Y-m-d');
@@ -107,6 +112,7 @@ class DynamicDashboardController extends Controller
                 'data' => $data,
                 'xLabel' => $detail->x_axis,
                 'yLabel' => $detail->y_axis,
+                'gridColumns' => $detail->grid_columns,
                 'chartId' => $detail->chart_id,
                 'moduleName' => $detail->module_name,
                 'dateRange' => $detail->date_range,
@@ -184,11 +190,17 @@ class DynamicDashboardController extends Controller
      */
     public function storeChartDetail(Request $request, Dashboard $dashboard): RedirectResponse
     {
+        // Get chart type to determine validation rules
+        $chart = Chart::find($request->chart_id);
+        $isGridChart = $chart && $chart->name === 'Grid';
+        
         $validated = $request->validate([
             'chart_id' => ['required', 'exists:charts,id'],
             'module_name' => ['required', 'string', 'max:255'],
             'x_axis' => ['nullable', 'string', 'max:255'],
             'y_axis' => ['nullable', 'string', 'max:255'],
+            'grid_columns' => ['nullable', 'array', 'max:5'],
+            'grid_columns.*' => ['string', 'max:255'],
             'date_range' => ['nullable', 'string', 'in:last_7_days,this_week,last_15_days,this_month,last_month,this_year'],
             'amount_min_range' => ['nullable', 'numeric', 'min:0'],
             'amount_max_range' => ['nullable', 'numeric', 'min:0', 'gte:amount_min_range'],
@@ -198,17 +210,24 @@ class DynamicDashboardController extends Controller
         $maxSortOrder = DashboardChartDetail::where('dashboard_id', $dashboard->id)
             ->max('sort_order') ?? 0;
 
-        DashboardChartDetail::create([
+        $chartDetailData = [
             'dashboard_id' => $dashboard->id,
             'chart_id' => $validated['chart_id'],
             'x_axis' => $validated['x_axis'] ?? null,
             'y_axis' => $validated['y_axis'] ?? null,
+            'grid_columns' => $validated['grid_columns'] ?? null,
             'module_name' => $validated['module_name'],
-            'date_range' => $validated['date_range'] ?? null,
-            'amount_min_range' => $validated['amount_min_range'] ?? null,
-            'amount_max_range' => $validated['amount_max_range'] ?? null,
             'sort_order' => $maxSortOrder + 1,
-        ]);
+        ];
+        
+        // Only add date and amount range fields for non-grid charts
+        if (!$isGridChart) {
+            $chartDetailData['date_range'] = $validated['date_range'] ?? null;
+            $chartDetailData['amount_min_range'] = $validated['amount_min_range'] ?? null;
+            $chartDetailData['amount_max_range'] = $validated['amount_max_range'] ?? null;
+        }
+        
+        DashboardChartDetail::create($chartDetailData);
 
         return redirect()
             ->route('dynamic-dashboard.show', $dashboard)
@@ -226,25 +245,43 @@ class DynamicDashboardController extends Controller
                 ->with('status', 'Unable to update: Chart does not belong to this dashboard.');
         }
 
+        // Get chart type to determine validation rules
+        $chart = Chart::find($request->chart_id);
+        $isGridChart = $chart && $chart->name === 'Grid';
+        
         $validated = $request->validate([
             'chart_id' => ['required', 'exists:charts,id'],
             'module_name' => ['required', 'string', 'max:255'],
             'x_axis' => ['nullable', 'string', 'max:255'],
             'y_axis' => ['nullable', 'string', 'max:255'],
+            'grid_columns' => ['nullable', 'array', 'max:5'],
+            'grid_columns.*' => ['string', 'max:255'],
             'date_range' => ['nullable', 'string', 'in:last_7_days,this_week,last_15_days,this_month,last_month,this_year'],
             'amount_min_range' => ['nullable', 'numeric', 'min:0'],
             'amount_max_range' => ['nullable', 'numeric', 'min:0', 'gte:amount_min_range'],
         ]);
 
-        $detail->update([
+        $updateData = [
             'chart_id' => $validated['chart_id'],
             'module_name' => $validated['module_name'],
             'x_axis' => $validated['x_axis'] ?? null,
             'y_axis' => $validated['y_axis'] ?? null,
-            'date_range' => $validated['date_range'] ?? null,
-            'amount_min_range' => $validated['amount_min_range'] ?? null,
-            'amount_max_range' => $validated['amount_max_range'] ?? null,
-        ]);
+            'grid_columns' => $validated['grid_columns'] ?? null,
+        ];
+        
+        // Only update date and amount range fields for non-grid charts
+        if (!$isGridChart) {
+            $updateData['date_range'] = $validated['date_range'] ?? null;
+            $updateData['amount_min_range'] = $validated['amount_min_range'] ?? null;
+            $updateData['amount_max_range'] = $validated['amount_max_range'] ?? null;
+        } else {
+            // Clear date and amount range fields for grid charts
+            $updateData['date_range'] = null;
+            $updateData['amount_min_range'] = null;
+            $updateData['amount_max_range'] = null;
+        }
+        
+        $detail->update($updateData);
 
         return redirect()
             ->route('dynamic-dashboard.show', $dashboard)
@@ -289,6 +326,7 @@ class DynamicDashboardController extends Controller
             'Radar Chart' => 'radar',
             'Bubble Chart' => 'bubble',
             'Polar Area Chart' => 'polarArea',
+            'Grid' => 'grid',
         ];
 
         $from = $request->query('from');
@@ -312,8 +350,12 @@ class DynamicDashboardController extends Controller
             if ($detail->module_name && $detail->x_axis && $detail->y_axis) {
                 $dateField = $dateFieldOverride ?: 'sales_date';
                 
-                // Apply date range (override or default) if no specific from/to dates are provided
-                if (!$from && !$to) {
+                // Check if this is a grid chart to determine filtering behavior
+                $chart = $detail->chart;
+                $isGridChart = $chart && $chart->name === 'Grid';
+                
+                // Apply date range (override or default) if no specific from/to dates are provided (only for non-grid charts)
+                if (!$from && !$to && !$isGridChart) {
                     $rangeToUse = $dateRangeOverride ?: $detail->date_range;
                     if ($rangeToUse) {
                         $dateRange = $this->calculateDateRange($rangeToUse);
@@ -341,6 +383,7 @@ class DynamicDashboardController extends Controller
                 'data' => $data,
                 'xLabel' => $detail->x_axis,
                 'yLabel' => $detail->y_axis,
+                'gridColumns' => $detail->grid_columns,
                 'chartId' => $detail->chart_id,
                 'moduleName' => $detail->module_name,
                 'dateRange' => $detail->date_range,
@@ -401,6 +444,56 @@ class DynamicDashboardController extends Controller
         }
 
         return response()->json(['message' => 'Chart order updated successfully']);
+    }
+
+    /**
+     * Return grid data for a dashboard (AJAX).
+     */
+    public function gridData(Request $request, Dashboard $dashboard, DashboardChartDetail $detail)
+    {
+        if ((int) $detail->dashboard_id !== (int) $dashboard->id) {
+            return response()->json(['message' => 'Chart does not belong to this dashboard'], 422);
+        }
+
+        $from = $request->query('from');
+        $to = $request->query('to');
+        $dateFieldOverride = $request->query('date_field');
+        $dateRangeOverride = $request->query('date_range');
+
+        if (!$detail->module_name || !$detail->grid_columns) {
+            return response()->json(['data' => [], 'total' => 0]);
+        }
+
+        $dateField = $dateFieldOverride ?: 'created_at';
+        
+        // For grid charts, don't apply date range filtering
+        $chart = Chart::find($detail->chart_id);
+        $isGridChart = $chart && $chart->name === 'Grid';
+        
+        if (!$isGridChart) {
+            // Apply date range (override or default) if no specific from/to dates are provided
+            if (!$from && !$to) {
+                $rangeToUse = $dateRangeOverride ?: $detail->date_range;
+                if ($rangeToUse) {
+                    $dateRange = $this->calculateDateRange($rangeToUse);
+                    $from = $dateRange['from']?->format('Y-m-d');
+                    $to = $dateRange['to']?->format('Y-m-d');
+                }
+            }
+            
+            // Dynamically determine the date field, with override support
+            if (!$dateFieldOverride) {
+                $dateField = $this->determineDateField($detail->module_name, null, null, 'created_at');
+            }
+        }
+
+        // Get grid data
+        $result = $this->executeGridQuery($detail->module_name, $detail, $from, $to, $dateField);
+        
+        return response()->json([
+            'data' => $result['data'],
+            'total' => $result['total']
+        ]);
     }
 
     /**
@@ -563,17 +656,21 @@ class DynamicDashboardController extends Controller
             return $this->executeRawQuery($moduleName, $detail, $from, $to, $dateField);
         }
 
+        // Check if this is a grid chart to determine filtering behavior
+        $chart = Chart::find($detail->chart_id);
+        $isGridChart = $chart && $chart->name === 'Grid';
+        
         $rows = $modelClass::query()
-            ->when($from, function ($q) use ($from, $dateField) {
+            ->when($from && !$isGridChart, function ($q) use ($from, $dateField) {
                 $q->whereDate($dateField, '>=', $from);
             })
-            ->when($to, function ($q) use ($to, $dateField) {
+            ->when($to && !$isGridChart, function ($q) use ($to, $dateField) {
                 $q->whereDate($dateField, '<=', $to);
             })
-            ->when($detail->amount_min_range, function ($q) use ($detail) {
+            ->when($detail->amount_min_range && !$isGridChart, function ($q) use ($detail) {
                 $q->where($detail->x_axis, '>=', $detail->amount_min_range);
             })
-            ->when($detail->amount_max_range, function ($q) use ($detail) {
+            ->when($detail->amount_max_range && !$isGridChart, function ($q) use ($detail) {
                 $q->where($detail->x_axis, '<=', $detail->amount_max_range);
             })
             ->selectRaw("{$detail->y_axis} as label, SUM({$detail->x_axis}) as value")
@@ -597,21 +694,25 @@ class DynamicDashboardController extends Controller
      */
     private function executeRawQuery(string $moduleName, $detail, ?string $from, ?string $to, string $dateField): array
     {
+        // Check if this is a grid chart to determine filtering behavior
+        $chart = Chart::find($detail->chart_id);
+        $isGridChart = $chart && $chart->name === 'Grid';
+        
         $query = DB::table($moduleName);
 
-        if ($from) {
+        if ($from && !$isGridChart) {
             $query->whereDate($dateField, '>=', $from);
         }
         
-        if ($to) {
+        if ($to && !$isGridChart) {
             $query->whereDate($dateField, '<=', $to);
         }
 
-        if ($detail->amount_min_range) {
+        if ($detail->amount_min_range && !$isGridChart) {
             $query->where($detail->x_axis, '>=', $detail->amount_min_range);
         }
 
-        if ($detail->amount_max_range) {
+        if ($detail->amount_max_range && !$isGridChart) {
             $query->where($detail->x_axis, '<=', $detail->amount_max_range);
         }
 
@@ -630,5 +731,96 @@ class DynamicDashboardController extends Controller
         }
 
         return ['labels' => $labels, 'data' => $data];
+    }
+
+    /**
+     * Execute a grid query for any module.
+     */
+    private function executeGridQuery(string $moduleName, $detail, ?string $from, ?string $to, string $dateField): array
+    {
+        $modelClass = $this->getModelForModule($moduleName);
+        
+        if (!$modelClass) {
+            // Fallback to raw DB query if no model is mapped
+            return $this->executeRawGridQuery($moduleName, $detail, $from, $to, $dateField);
+        }
+
+        // Check if this is a grid chart to determine filtering behavior
+        $chart = Chart::find($detail->chart_id);
+        $isGridChart = $chart && $chart->name === 'Grid';
+        
+        $query = $modelClass::query()
+            ->when($from && !$isGridChart, function ($q) use ($from, $dateField) {
+                $q->whereDate($dateField, '>=', $from);
+            })
+            ->when($to && !$isGridChart, function ($q) use ($to, $dateField) {
+                $q->whereDate($dateField, '<=', $to);
+            })
+            ->when($detail->amount_min_range && !$isGridChart, function ($q) use ($detail) {
+                // Apply amount filter to the first numeric column if available
+                $firstColumn = $detail->grid_columns[0] ?? null;
+                if ($firstColumn) {
+                    $q->where($firstColumn, '>=', $detail->amount_min_range);
+                }
+            })
+            ->when($detail->amount_max_range && !$isGridChart, function ($q) use ($detail) {
+                // Apply amount filter to the first numeric column if available
+                $firstColumn = $detail->grid_columns[0] ?? null;
+                if ($firstColumn) {
+                    $q->where($firstColumn, '<=', $detail->amount_max_range);
+                }
+            });
+
+        // Select only the grid columns
+        $selectColumns = $detail->grid_columns;
+        $query->select($selectColumns);
+
+        $total = $query->count();
+        $data = $query->get()->toArray();
+
+        return ['data' => $data, 'total' => $total];
+    }
+
+    /**
+     * Execute a raw grid query for modules without mapped models.
+     */
+    private function executeRawGridQuery(string $moduleName, $detail, ?string $from, ?string $to, string $dateField): array
+    {
+        // Check if this is a grid chart to determine filtering behavior
+        $chart = Chart::find($detail->chart_id);
+        $isGridChart = $chart && $chart->name === 'Grid';
+        
+        $query = DB::table($moduleName);
+
+        if ($from && !$isGridChart) {
+            $query->whereDate($dateField, '>=', $from);
+        }
+        
+        if ($to && !$isGridChart) {
+            $query->whereDate($dateField, '<=', $to);
+        }
+
+        if ($detail->amount_min_range && !$isGridChart) {
+            $firstColumn = $detail->grid_columns[0] ?? null;
+            if ($firstColumn) {
+                $query->where($firstColumn, '>=', $detail->amount_min_range);
+            }
+        }
+
+        if ($detail->amount_max_range && !$isGridChart) {
+            $firstColumn = $detail->grid_columns[0] ?? null;
+            if ($firstColumn) {
+                $query->where($firstColumn, '<=', $detail->amount_max_range);
+            }
+        }
+
+        // Select only the grid columns
+        $selectColumns = $detail->grid_columns;
+        $query->select($selectColumns);
+
+        $total = $query->count();
+        $data = $query->get()->toArray();
+
+        return ['data' => $data, 'total' => $total];
     }
 }

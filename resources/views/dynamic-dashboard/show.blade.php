@@ -64,7 +64,7 @@
                                         <h3 class="font-medium text-gray-900">{{ ucfirst($cfg['moduleName']) }} - {{ $cfg['title'] }}</h3>
                                     </div>
                                     <div class="flex items-center gap-3"><div class="flex items-center gap-1">
-                                            <button type="button" onclick="openEditChartModal({{ $cfg['id'] }}, {{ $cfg['chartId'] }}, '{{ $cfg['moduleName'] }}', '{{ $cfg['xLabel'] }}', '{{ $cfg['yLabel'] }}', '{{ $cfg['dateRange'] ?? '' }}', '{{ $cfg['amountMinRange'] ?? '' }}', '{{ $cfg['amountMaxRange'] ?? '' }}')" 
+                                            <button type="button" onclick="openEditChartModal({{ $cfg['id'] }}, {{ $cfg['chartId'] }}, '{{ $cfg['moduleName'] }}', '{{ $cfg['xLabel'] }}', '{{ $cfg['yLabel'] }}', '{{ $cfg['dateRange'] ?? '' }}', '{{ $cfg['amountMinRange'] ?? '' }}', '{{ $cfg['amountMaxRange'] ?? '' }}', {{ json_encode($cfg['gridColumns'] ?? []) }})" 
                            
                            
                            
@@ -86,6 +86,7 @@
                                         </div>
                                     </div>
                                 </div>
+                                @if($cfg['type'] !== 'grid')
                                 <div class="mb-3 border rounded-md bg-white shadow-sm p-3">
                                     <form class="per-chart-filter flex flex-nowrap items-end gap-3 overflow-x-auto" data-detail-id="{{ $cfg['id'] }}" data-module="{{ $cfg['moduleName'] }}">
                                     <div class="shrink-0">
@@ -114,6 +115,7 @@
                                     </div>
                                     </form>
                                 </div>
+                                @endif
                                 <div class="relative group chart-resizable" data-chart-id="{{ $cfg['id'] }}" style="height: {{ isset($cfg['heightPx']) && $cfg['heightPx'] ? $cfg['heightPx'].'px' : '16rem' }};">
                                     <div id="chart-{{ $cfg['id'] }}" style="width: 100%; height: 100%;"></div>
                                     <button type="button" class="absolute bottom-1 right-1 w-4 h-4 rounded bg-gray-200 text-gray-500 hover:bg-gray-300 flex items-center justify-center cursor-se-resize shadow-sm border border-gray-300 resize-handle" title="Resize">
@@ -174,7 +176,7 @@
                         </select>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div id="axis-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="x_axis" class="block text-sm font-medium text-gray-700">X Axis</label>
                             <select id="x_axis" name="x_axis" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
@@ -189,7 +191,14 @@
                         </div>
                     </div>
 
-                    <div>
+                    <div id="grid-columns-field" class="hidden">
+                        <label for="grid_columns" class="block text-sm font-medium text-gray-700">Grid Columns (Maximum 5)</label>
+                        <select id="grid_columns" name="grid_columns[]" multiple class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" size="5">
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Hold Ctrl/Cmd to select multiple columns</p>
+                    </div>
+
+                    <div id="date-range-field">
                         <label for="date_range" class="block text-sm font-medium text-gray-700">Default Date Range</label>
                         <select id="date_range" name="date_range" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                             <option value="">All Time</option>
@@ -202,7 +211,7 @@
                         </select>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
+                    <div id="amount-range-fields" class="grid grid-cols-2 gap-4">
                         <div>
                             <label for="amount_min_range" class="block text-sm font-medium text-gray-700">Amount Min Range</label>
                             <input type="number" id="amount_min_range" name="amount_min_range" step="0.01" min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="0.00">
@@ -215,7 +224,7 @@
 
                     <div class="flex items-center justify-end gap-3 pt-2">
                         <button type="button" onclick="closeAddChartModal()" class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</button>
-                        <button type="submit" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Add</button>
+                        <button type="submit" onclick="return validateAddChartForm()" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Add</button>
                     </div>
                 </form>
             </div>
@@ -249,7 +258,7 @@
                         </select>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div id="edit-axis-fields" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="edit_x_axis" class="block text-sm font-medium text-gray-700">X Axis</label>
                             <select id="edit_x_axis" name="x_axis" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
@@ -264,7 +273,14 @@
                         </div>
                     </div>
 
-                    <div>
+                    <div id="edit-grid-columns-field" class="hidden">
+                        <label for="edit_grid_columns" class="block text-sm font-medium text-gray-700">Grid Columns (Maximum 5)</label>
+                        <select id="edit_grid_columns" name="grid_columns[]" multiple class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" size="5">
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">Hold Ctrl/Cmd to select multiple columns</p>
+                    </div>
+
+                    <div id="edit-date-range-field">
                         <label for="edit_date_range" class="block text-sm font-medium text-gray-700">Default Date Range</label>
                         <select id="edit_date_range" name="date_range" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                             <option value="">All Time</option>
@@ -277,7 +293,7 @@
                         </select>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
+                    <div id="edit-amount-range-fields" class="grid grid-cols-2 gap-4">
                         <div>
                             <label for="edit_amount_min_range" class="block text-sm font-medium text-gray-700">Amount Min Range</label>
                             <input type="number" id="edit_amount_min_range" name="amount_min_range" step="0.01" min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="0.00">
@@ -290,7 +306,7 @@
 
                     <div class="flex items-center justify-end gap-3 pt-2">
                         <button type="button" onclick="closeEditChartModal()" class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</button>
-                        <button type="submit" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Update</button>
+                        <button type="submit" onclick="return validateEditChartForm()" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Update</button>
                     </div>
                 </form>
             </div>
@@ -299,12 +315,42 @@
         @if(!empty($chartConfigs ?? []) && count($chartConfigs))
             <script src="https://cdn.jsdelivr.net/npm/ag-charts-enterprise/dist/umd/ag-charts-enterprise.min.js"></script>
         @endif
+        
+        <!-- AG Grid enterprise Edition -->
+        <script src="https://cdn.jsdelivr.net/npm/ag-grid-enterprise@31.0.0/dist/ag-grid-enterprise.min.js"></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-enterprise@31.0.0/styles/ag-grid.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-enterprise@31.0.0/styles/ag-theme-alpine.css">
+        
+        <style>
+            .ag-theme-alpine {
+                --ag-header-height: 32px;
+                --ag-row-height: 32px;
+                --ag-font-size: 12px;
+                --ag-font-family: inherit;
+            }
+            
+            .chart-resizable .ag-theme-alpine {
+                height: 100% !important;
+                width: 100% !important;
+            }
+            
+            .ag-root-wrapper {
+                height: 100% !important;
+                width: 100% !important;
+            }
+        </style>
 
         <script>
             const addChartModal = document.getElementById('addChartModal');
             const moduleSelect = document.getElementById('module_name');
             const xAxisSelect = document.getElementById('x_axis');
             const yAxisSelect = document.getElementById('y_axis');
+            const chartIdSelect = document.getElementById('chart_id');
+            const gridColumnsSelect = document.getElementById('grid_columns');
+            const axisFields = document.getElementById('axis-fields');
+            const gridColumnsField = document.getElementById('grid-columns-field');
+            const dateRangeField = document.getElementById('date-range-field');
+            const amountRangeFields = document.getElementById('amount-range-fields');
 
             function openAddChartModal() {
                 addChartModal.classList.remove('hidden');
@@ -323,8 +369,13 @@
             const editXAxisSelect = document.getElementById('edit_x_axis');
             const editYAxisSelect = document.getElementById('edit_y_axis');
             const editChartIdSelect = document.getElementById('edit_chart_id');
+            const editGridColumnsSelect = document.getElementById('edit_grid_columns');
+            const editAxisFields = document.getElementById('edit-axis-fields');
+            const editGridColumnsField = document.getElementById('edit-grid-columns-field');
+            const editDateRangeField = document.getElementById('edit-date-range-field');
+            const editAmountRangeFields = document.getElementById('edit-amount-range-fields');
 
-            function openEditChartModal(chartDetailId, chartId, moduleName, xLabel, yLabel, dateRange, amountMinRange, amountMaxRange) {
+            function openEditChartModal(chartDetailId, chartId, moduleName, xLabel, yLabel, dateRange, amountMinRange, amountMaxRange, gridColumns) {
                 // Set the form action
                 editChartForm.action = '{{ route('dynamic-dashboard.charts.update', [$dashboard, ':chartDetailId']) }}'.replace(':chartDetailId', chartDetailId);
                 
@@ -336,7 +387,23 @@
                 document.getElementById('edit_amount_max_range').value = amountMaxRange || '';
                 
                 // Store the axis values to set later
-                window.pendingAxisValues = { xLabel: xLabel || '', yLabel: yLabel || '' };
+                window.pendingAxisValues = { xLabel: xLabel || '', yLabel: yLabel || '', gridColumns: gridColumns || [] };
+                
+                // Check if this is a grid chart and show/hide appropriate fields
+                const selectedOption = editChartIdSelect.options[editChartIdSelect.selectedIndex];
+                const chartName = selectedOption ? selectedOption.textContent : '';
+                
+                if (chartName === 'Grid') {
+                    editAxisFields.classList.add('hidden');
+                    editGridColumnsField.classList.remove('hidden');
+                    editDateRangeField.classList.add('hidden');
+                    editAmountRangeFields.classList.add('hidden');
+                } else {
+                    editAxisFields.classList.remove('hidden');
+                    editGridColumnsField.classList.add('hidden');
+                    editDateRangeField.classList.remove('hidden');
+                    editAmountRangeFields.classList.remove('hidden');
+                }
                 
                 // Trigger module change to populate axis fields
                 editModuleSelect.dispatchEvent(new Event('change'));
@@ -346,6 +413,16 @@
                     if (window.pendingAxisValues && editXAxisSelect.options.length > 1) {
                         editXAxisSelect.value = window.pendingAxisValues.xLabel;
                         editYAxisSelect.value = window.pendingAxisValues.yLabel;
+                        
+                        // Set grid columns if available
+                        if (window.pendingAxisValues.gridColumns && window.pendingAxisValues.gridColumns.length > 0) {
+                            Array.from(editGridColumnsSelect.options).forEach(option => {
+                                if (window.pendingAxisValues.gridColumns.includes(option.value)) {
+                                    option.selected = true;
+                                }
+                            });
+                        }
+                        
                         window.pendingAxisValues = null;
                     }
                 }, 300);
@@ -375,12 +452,62 @@
                 }
             });
 
+            // Handle chart type change for add modal
+            chartIdSelect && chartIdSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const chartName = selectedOption.textContent;
+                
+                if (chartName === 'Grid') {
+                    axisFields.classList.add('hidden');
+                    gridColumnsField.classList.remove('hidden');
+                    dateRangeField.classList.add('hidden');
+                    amountRangeFields.classList.add('hidden');
+                } else {
+                    axisFields.classList.remove('hidden');
+                    gridColumnsField.classList.add('hidden');
+                    dateRangeField.classList.remove('hidden');
+                    amountRangeFields.classList.remove('hidden');
+                }
+            });
+
+            // Handle chart type change for edit modal
+            editChartIdSelect && editChartIdSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const chartName = selectedOption.textContent;
+                
+                if (chartName === 'Grid') {
+                    editAxisFields.classList.add('hidden');
+                    editGridColumnsField.classList.remove('hidden');
+                    editDateRangeField.classList.add('hidden');
+                    editAmountRangeFields.classList.add('hidden');
+                    
+                    // If we have pending grid columns, set them
+                    if (window.pendingAxisValues && window.pendingAxisValues.gridColumns) {
+                        setTimeout(() => {
+                            if (editGridColumnsSelect.options.length > 0) {
+                                Array.from(editGridColumnsSelect.options).forEach(option => {
+                                    if (window.pendingAxisValues.gridColumns.includes(option.value)) {
+                                        option.selected = true;
+                                    }
+                                });
+                            }
+                        }, 100);
+                    }
+                } else {
+                    editAxisFields.classList.remove('hidden');
+                    editGridColumnsField.classList.add('hidden');
+                    editDateRangeField.classList.remove('hidden');
+                    editAmountRangeFields.classList.remove('hidden');
+                }
+            });
+
             // Populate x/y axis when module changes
             moduleSelect && moduleSelect.addEventListener('change', async function () {
                 const module = this.value;
                 // reset
                 xAxisSelect.innerHTML = '<option value="">Select field</option>';
                 yAxisSelect.innerHTML = '<option value="">Select field</option>';
+                gridColumnsSelect.innerHTML = '';
                 if (!module) return;
                 try {
                     const params = new URLSearchParams({ module });
@@ -400,6 +527,13 @@
                         opt.textContent = field;
                         yAxisSelect.appendChild(opt);
                     });
+                    // Populate grid columns with all available fields
+                    [...(data.numeric || []), ...(data.string || [])].forEach(function (field) {
+                        const opt = document.createElement('option');
+                        opt.value = field;
+                        opt.textContent = field;
+                        gridColumnsSelect.appendChild(opt);
+                    });
                 } catch (err) {
                     console.error(err);
                 }
@@ -411,6 +545,7 @@
                 // reset
                 editXAxisSelect.innerHTML = '<option value="">Select field</option>';
                 editYAxisSelect.innerHTML = '<option value="">Select field</option>';
+                editGridColumnsSelect.innerHTML = '';
                 if (!module) return;
                 try {
                     const params = new URLSearchParams({ module });
@@ -430,11 +565,28 @@
                         opt.textContent = field;
                         editYAxisSelect.appendChild(opt);
                     });
+                    // Populate grid columns with all available fields
+                    [...(data.numeric || []), ...(data.string || [])].forEach(function (field) {
+                        const opt = document.createElement('option');
+                        opt.value = field;
+                        opt.textContent = field;
+                        editGridColumnsSelect.appendChild(opt);
+                    });
                     
                     // Set the pending axis values after options are populated
                     if (window.pendingAxisValues) {
                         editXAxisSelect.value = window.pendingAxisValues.xLabel;
                         editYAxisSelect.value = window.pendingAxisValues.yLabel;
+                        
+                        // Set grid columns if available
+                        if (window.pendingAxisValues.gridColumns && window.pendingAxisValues.gridColumns.length > 0) {
+                            Array.from(editGridColumnsSelect.options).forEach(option => {
+                                if (window.pendingAxisValues.gridColumns.includes(option.value)) {
+                                    option.selected = true;
+                                }
+                            });
+                        }
+                        
                         // Clear the pending values
                         window.pendingAxisValues = null;
                     }
@@ -442,15 +594,271 @@
                     console.error(err);
                 }
             });
+
+            // Form validation functions
+            function validateAddChartForm() {
+                const selectedOption = chartIdSelect.options[chartIdSelect.selectedIndex];
+                const chartName = selectedOption ? selectedOption.textContent : '';
+                
+                if (chartName === 'Grid') {
+                    const selectedColumns = Array.from(gridColumnsSelect.selectedOptions);
+                    if (selectedColumns.length === 0) {
+                        alert('Please select at least one column for the grid.');
+                        return false;
+                    }
+                    if (selectedColumns.length > 5) {
+                        alert('Please select maximum 5 columns for the grid.');
+                        return false;
+                    }
+                } else {
+                    if (!xAxisSelect.value || !yAxisSelect.value) {
+                        alert('Please select both X and Y axis fields.');
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            function validateEditChartForm() {
+                const selectedOption = editChartIdSelect.options[editChartIdSelect.selectedIndex];
+                const chartName = selectedOption ? selectedOption.textContent : '';
+                
+                if (chartName === 'Grid') {
+                    const selectedColumns = Array.from(editGridColumnsSelect.selectedOptions);
+                    if (selectedColumns.length === 0) {
+                        alert('Please select at least one column for the grid.');
+                        return false;
+                    }
+                    if (selectedColumns.length > 5) {
+                        alert('Please select maximum 5 columns for the grid.');
+                        return false;
+                    }
+                } else {
+                    if (!editXAxisSelect.value || !editYAxisSelect.value) {
+                        alert('Please select both X and Y axis fields.');
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            // Grid rendering function
+            function renderGrid(cfg, container) {
+                if (typeof agGrid === 'undefined') {
+                    container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">AG Grid not loaded</div>';
+                    return;
+                }
+
+                // Create column definitions from grid columns
+                const columnDefs = (cfg.gridColumns || []).map(column => {
+                    const columnDef = {
+                        headerName: column.charAt(0).toUpperCase() + column.slice(1).replace(/_/g, ' '),
+                        field: column,
+                        sortable: true,
+                        filter: true,
+                        resizable: true
+                    };
+                    
+                    // Check if this is a date column and add formatter
+                    if (column.toLowerCase().includes('date') || column.toLowerCase().includes('_at') || column.toLowerCase().includes('time')) {
+                        columnDef.valueFormatter = function(params) {
+                            if (params.value) {
+                                const date = new Date(params.value);
+                                if (!isNaN(date.getTime())) {
+                                    const day = String(date.getDate()).padStart(2, '0');
+                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                    const year = String(date.getFullYear()).slice(-2);
+                                    const hours = String(date.getHours()).padStart(2, '0');
+                                    const minutes = String(date.getMinutes()).padStart(2, '0');
+                                    const seconds = String(date.getSeconds()).padStart(2, '0');
+                                    return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
+                                }
+                            }
+                            return params.value;
+                        };
+                    }
+                    
+                    return columnDef;
+                });
+
+                if (columnDefs.length === 0) {
+                    container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No columns configured</div>';
+                    return;
+                }
+
+                // Grid options
+                const gridOptions = {
+                    columnDefs: columnDefs,
+                    rowData: [],
+                    defaultColDef: {
+                        flex: 1,
+                        minWidth: 100,
+                        resizable: true,
+                        sortable: true,
+                        filter: true
+                    },
+                    pagination: true,
+                    paginationPageSize: 20,
+                    domLayout: 'normal',
+                    suppressHorizontalScroll: false,
+                    suppressColumnVirtualisation: true,
+                    animateRows: true,
+                    rowSelection: 'multiple',
+                    headerHeight: 32,
+                    rowHeight: 32,
+                    onGridReady: function(params) {
+                        // Load data when grid is ready
+                        loadGridData(cfg.id, params.api);
+                        
+                        // Auto-size columns after data is loaded
+                        setTimeout(() => {
+                            params.api.sizeColumnsToFit();
+                        }, 100);
+                    }
+                };
+
+                // Add theme class to container
+                container.classList.add('ag-theme-alpine');
+                container.style.height = '100%';
+                container.style.width = '100%';
+
+                // Create the grid
+                try {
+                    agGrid.createGrid(container, gridOptions);
+                } catch (error) {
+                    console.error('Error creating grid:', error);
+                    container.innerHTML = '<div class="flex items-center justify-center h-full text-red-500">Error creating grid: ' + error.message + '</div>';
+                }
+                
+                // Fallback: Load data directly if grid creation fails
+                setTimeout(() => {
+                    if (container.innerHTML.includes('Error creating grid')) {
+                        loadGridDataDirectly(cfg.id, container, columnDefs);
+                    } else {
+                        // Check if grid has any content
+                        const gridElements = container.querySelectorAll('.ag-root-wrapper, .ag-root');
+                        if (gridElements.length === 0) {
+                            loadGridDataDirectly(cfg.id, container, columnDefs);
+                        }
+                    }
+                }, 2000);
+            }
+
+            // Fallback function to load data directly as a simple table
+            function loadGridDataDirectly(chartDetailId, container, columnDefs) {
+                const url = '{{ route("dynamic-dashboard.charts.grid-data", [$dashboard, ":detailId"]) }}'.replace(':detailId', chartDetailId);
+                
+                fetch(url, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.data && data.data.length > 0) {
+                        // Create a simple HTML table
+                        let tableHtml = '<div class="overflow-auto h-full"><table class="min-w-full divide-y divide-gray-200">';
+                        tableHtml += '<thead class="bg-gray-50"><tr>';
+                        columnDefs.forEach(col => {
+                            tableHtml += `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${col.headerName}</th>`;
+                        });
+                        tableHtml += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+                        
+                        data.data.slice(0, 20).forEach(row => { // Show only first 20 rows
+                            tableHtml += '<tr>';
+                            columnDefs.forEach(col => {
+                                let cellValue = row[col.field] || '';
+                                
+                                // Format date values for fallback table
+                                if (col.field.toLowerCase().includes('date') || col.field.toLowerCase().includes('_at') || col.field.toLowerCase().includes('time')) {
+                                    if (cellValue) {
+                                        const date = new Date(cellValue);
+                                        if (!isNaN(date.getTime())) {
+                                            const day = String(date.getDate()).padStart(2, '0');
+                                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                                            const year = String(date.getFullYear()).slice(-2);
+                                            const hours = String(date.getHours()).padStart(2, '0');
+                                            const minutes = String(date.getMinutes()).padStart(2, '0');
+                                            const seconds = String(date.getSeconds()).padStart(2, '0');
+                                            cellValue = `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
+                                        }
+                                    }
+                                }
+                                
+                                tableHtml += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${cellValue}</td>`;
+                            });
+                            tableHtml += '</tr>';
+                        });
+                        
+                        tableHtml += '</tbody></table>';
+                        if (data.data.length > 20) {
+                            tableHtml += `<div class="p-4 text-sm text-gray-500">Showing first 20 of ${data.data.length} rows</div>`;
+                        }
+                        tableHtml += '</div>';
+                        
+                        container.innerHTML = tableHtml;
+                    } else {
+                        container.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">No data available</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading grid data for fallback:', error);
+                    container.innerHTML = '<div class="flex items-center justify-center h-full text-red-500">Error loading data</div>';
+                });
+            }
+
+            // Load grid data via AJAX
+            function loadGridData(chartDetailId, gridApi) {
+                const url = '{{ route("dynamic-dashboard.charts.grid-data", [$dashboard, ":detailId"]) }}'.replace(':detailId', chartDetailId);
+                
+                fetch(url, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.data) {
+                        gridApi.setGridOption('rowData', data.data);
+                        // Auto-size columns after data is loaded
+                        setTimeout(() => {
+                            gridApi.sizeColumnsToFit();
+                        }, 100);
+                    } else {
+                        gridApi.setGridOption('rowData', []);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading grid data:', error);
+                    gridApi.setGridOption('rowData', []);
+                });
+            }
+
             // Render charts
             (function () {
                 const cfgs = @json($chartConfigs ?? []);
-                if (!Array.isArray(cfgs) || !cfgs.length || typeof agCharts === 'undefined') return;
+                if (!Array.isArray(cfgs) || !cfgs.length) return;
                 window.__chartsById = window.__chartsById || {};
                 
                 cfgs.forEach(function (cfg) {
                     const el = document.getElementById('chart-' + cfg.id);
                     if (!el) return;
+                    
+                    // Handle grid type separately
+                    if (cfg.type === 'grid') {
+                        renderGrid(cfg, el);
+                        return;
+                    }
+                    
+                    // Skip if agCharts is not available for other chart types
+                    if (typeof agCharts === 'undefined') return;
                     
                     // Convert Chart.js data format to AG Charts format
                     const data = cfg.labels.map((label, index) => ({

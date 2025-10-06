@@ -20,12 +20,22 @@ class DashboardChartDetail extends Model
         'chart_id',
         'x_axis',
         'y_axis',
+        'grid_columns',
         'module_name',
         'date_range',
         'amount_min_range',
         'amount_max_range',
         'width_px',
         'height_px',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'grid_columns' => 'array',
     ];
 
     /**

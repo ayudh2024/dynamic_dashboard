@@ -22,6 +22,7 @@ class ChartSeeder extends Seeder
             'Radar Chart',
             'Bubble Chart',
             'Polar Area Chart',
+            'Grid',
         ];
 
         foreach ($names as $name) {

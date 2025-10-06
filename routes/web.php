@@ -50,3 +50,9 @@ Route::get('/dynamic-dashboard/{dashboard}', [DynamicDashboardController::class,
 Route::get('/dynamic-dashboard/{dashboard}/data', [DynamicDashboardController::class, 'data'])
     ->whereNumber('dashboard')
     ->name('dynamic-dashboard.data');
+
+// AJAX: grid data for a specific chart detail
+Route::get('/dynamic-dashboard/{dashboard}/charts/{detail}/grid-data', [DynamicDashboardController::class, 'gridData'])
+    ->whereNumber('dashboard')
+    ->whereNumber('detail')
+    ->name('dynamic-dashboard.charts.grid-data');
